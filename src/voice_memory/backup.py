@@ -15,6 +15,7 @@ import logging
 import os
 import shutil
 import sqlite3
+import subprocess
 import sys
 import tempfile
 from datetime import datetime
@@ -30,6 +31,29 @@ PREFIX = "voice_memory-"
 
 class BackupError(RuntimeError):
     pass
+
+
+def upload(dest: Path, remote: str, runner=subprocess.run) -> None:
+    """Mirror the backup dir to an rclone remote ("name:path"). Recordings are copied, never deleted remotely;
+    DB snapshots (and the sync state) are synced so remote pruning follows the local one."""
+    name, sep, _ = remote.partition(":")
+    if not sep or not name or "/" in name:
+        raise BackupError(f"rclone remote must look like 'name:path', got {remote!r}")
+    base = remote.rstrip("/")
+    steps = [
+        ["rclone", "sync", str(dest), base, "--include", f"{PREFIX}*.db", "--include", "clip_sync_state.json"],
+        ["rclone", "copy", str(dest / "recordings"), f"{base}/recordings"],
+        ["rclone", "check", "--one-way", str(dest / "recordings"), f"{base}/recordings"],
+    ]
+    for cmd in steps:
+        if cmd[1] != "sync" and not (dest / "recordings").is_dir():
+            continue
+        try:
+            r = runner(cmd, capture_output=True, text=True, timeout=3600)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            raise BackupError(f"rclone {cmd[1]} failed: {e}") from e
+        if r.returncode != 0:
+            raise BackupError(f"rclone {cmd[1]} exited {r.returncode}: {(r.stderr or r.stdout)[-300:]}")
 
 
 def backup_dir() -> Path:
@@ -138,6 +162,8 @@ def main(argv: list[str] | None = None) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dest", type=Path, default=None, help="default: $VOICE_MEMORY_BACKUP_DIR or ~/backups/voice-memory")
     ap.add_argument("--keep", type=int, default=KEEP_DEFAULT, help="DB snapshots to keep (default %(default)s)")
+    ap.add_argument("--rclone-remote", default=os.environ.get("VOICE_MEMORY_RCLONE_REMOTE"), metavar="NAME:PATH",
+                    help="also upload the backup to this rclone remote (default: $VOICE_MEMORY_RCLONE_REMOTE)")
     ap.add_argument("--verify", action="store_true", help="restore-check the newest snapshot instead of backing up")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -149,6 +175,9 @@ def main(argv: list[str] | None = None) -> int:
             state = os.environ.get("VOICE_MEMORY_CLIP_STATE")
             state_p = Path(state).expanduser() if state else db.PROJECT_ROOT / "data" / "clip_sync_state.json"
             result = run_backup(db.default_db_path(), recordings_dir(), state_p, dest, args.keep)
+            if args.rclone_remote:
+                upload(dest, args.rclone_remote)
+                result["uploaded_to"] = args.rclone_remote
     except (BackupError, sqlite3.Error, OSError) as e:
         log.error("%s", e)
         return 1
