@@ -1,0 +1,11 @@
+[Unit]
+Description=Fetch new reSpeaker Clip recordings and ingest them into voice-memory
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/voice-memory
+ExecStart=%h/voice-memory/.venv/bin/voice-memory-clip-sync
+Nice=10
+TimeoutStartSec=4h
+# exit 1 = a session failed (see logs/ingest.log); that is not a unit failure worth retrying immediately
+SuccessExitStatus=1

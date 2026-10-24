@@ -195,3 +195,75 @@ def test_api_key_never_logged(env, monkeypatch, caplog):
     with pytest.raises(IngestError):
         run(f, env, FakeSTT(fail=TranscribeError("boom")), FakeLLM())
     assert "SECRET" not in caplog.text
+
+
+# --- clip_sync ---
+def _fake_clip(tmp_path, clip_state="IDLE", sessions=("20261024115101",), fetch_ok=True):
+    import subprocess
+    from voice_memory.ingest import clip_sync
+
+    calls = []
+
+    def runner(cmd, timeout):
+        calls.append(cmd)
+        name = cmd[0]
+        if name.endswith("clip_wifi_sync.sh"):
+            if fetch_ok:
+                d = tmp_path / "recordings" / "Clip" / cmd[1]
+                d.mkdir(parents=True, exist_ok=True)
+                (d / f"{cmd[1]}.ogg").write_bytes(b"x")
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        if "status" in cmd:
+            if clip_state is None:
+                return subprocess.CompletedProcess(cmd, 1, "", "ConnectionError")
+            return subprocess.CompletedProcess(cmd, 0, f"State:    {clip_state}\nBattery:  72%\n", "")
+        out = f"Sessions: {len(sessions)}\n" + "".join(f"  {s}: 1 files, 155.5 KB\n" for s in sessions)
+        return subprocess.CompletedProcess(cmd, 0, out, "")
+
+    return clip_sync.Clip(runner=runner, sdk=tmp_path), calls
+
+
+def test_clip_sync_ingests_new_session_once(tmp_path):
+    from voice_memory.ingest import clip_sync
+
+    clip, calls = _fake_clip(tmp_path)
+    state, ingested = {}, []
+    ingest = lambda p: ingested.append(p) or {"memory_id": "m1"}
+    r = clip_sync.sync(clip, state, ingest, Path("clip_wifi_sync.sh"))
+    assert r["done"] == ["20261024115101"] and len(ingested) == 1
+    assert state["20261024115101"]["status"] == "done"
+    n = len(calls)
+    r = clip_sync.sync(clip, state, ingest, Path("clip_wifi_sync.sh"))  # second run: nothing new
+    assert r["new"] == [] and len(ingested) == 1
+    assert not any(c[0].endswith("clip_wifi_sync.sh") for c in calls[n:])
+
+
+def test_clip_sync_quiet_when_out_of_range_or_recording(tmp_path):
+    from voice_memory.ingest import clip_sync
+
+    for st in (None, "RECORDING"):
+        clip, calls = _fake_clip(tmp_path, clip_state=st)
+        r = clip_sync.sync(clip, {}, lambda p: {}, Path("s.sh"))
+        assert r["new"] == [] and not any(c[0].endswith("s.sh") for c in calls)
+
+
+def test_clip_sync_ignored_and_retry_limit(tmp_path):
+    from voice_memory.ingest import clip_sync
+
+    clip, _ = _fake_clip(tmp_path, sessions=("20261024032642", "20261024115101"), fetch_ok=False)
+    state = {"20261024032642": {"status": "ignored"}}
+    for _ in range(clip_sync.MAX_ATTEMPTS + 2):
+        r = clip_sync.sync(clip, state, lambda p: {}, Path("s.sh"))
+    assert state["20261024115101"]["attempts"] == clip_sync.MAX_ATTEMPTS
+    assert state["20261024115101"]["status"] == "failed" and r["new"] == []
+    assert "20261024032642" not in r["new"]
+
+
+def test_clip_sync_dry_run_changes_nothing(tmp_path):
+    from voice_memory.ingest import clip_sync
+
+    clip, calls = _fake_clip(tmp_path)
+    state = {}
+    r = clip_sync.sync(clip, state, lambda p: {}, Path("s.sh"), dry_run=True)
+    assert r["new"] == ["20261024115101"] and state == {}
+    assert not any(c[0].endswith("s.sh") for c in calls)

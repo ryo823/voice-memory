@@ -16,6 +16,7 @@ dev = ["pytest>=8"]
 voice-memory-mcp = "voice_memory.mcp_server:main"
 voice-memory-init = "voice_memory.database:init_cli"
 voice-memory-ingest = "voice_memory.ingest.cli:main"
+voice-memory-clip-sync = "voice_memory.ingest.clip_sync:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

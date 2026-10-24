@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for new reSpeaker Clip recordings every 5 minutes
+
+[Timer]
+OnBootSec=3min
+OnActiveSec=1min
+OnUnitInactiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

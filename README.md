@@ -163,6 +163,24 @@ scripts/clip_wifi_sync.sh <session_id>                    # 取得（wlan0のみ
 - 再ペアリングが必要な場合: Pi側で `bluetoothctl remove <MAC>` → Clipを近くに置いて `clip-cli ... status`。
 - 音量が非常に小さい（会話が -50 dBFS 以下）録音は VAD が全除外して文字起こしが空になり得る。マイクを口元に近づけて録音する。
 
+### 自動取り込み（`voice-memory-clip-sync`）
+
+Clip が Pi の BLE 圏内にいる間、新しいセッションを取得して ingest する。圏外なら何もしない。
+
+```bash
+.venv/bin/voice-memory-clip-sync --dry-run          # 新規セッションの確認のみ（Wi-Fiには触れない）
+.venv/bin/voice-memory-clip-sync                    # 取得→ingest
+.venv/bin/voice-memory-clip-sync --ignore <session> # 取り込まないセッションを登録
+.venv/bin/voice-memory-clip-sync --retry <session>  # 3回失敗したセッションを再試行対象に戻す
+```
+
+- 状態は `data/clip_sync_state.json`（Git管理外, `VOICE_MEMORY_CLIP_STATE` で変更可）。`done`/`ignored` は再取得しない。失敗は最大3回まで。
+- Clip が録音中（State が IDLE 以外）のときは触らない。Clip 内の録音は削除しない。
+- 取得時のみ wlan0 を一時的に ClipAP へ切り替える（`scripts/clip_wifi_sync.sh`）。
+- 定期実行は `systemd/voice-memory-clip-sync.{service,timer}`（ユーザーユニット, 5分間隔）。有効化:
+  `mkdir -p ~/.config/systemd/user && cp systemd/voice-memory-clip-sync.* ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now voice-memory-clip-sync.timer`
+  ログアウト中も動かすには `loginctl enable-linger $USER` が別途必要。
+
 ### プライバシー・運用上の注意
 - 録音には他人の会話が含まれ得る。録音前に相手の同意を得ること（職場・店舗等のルールや法令も確認）。
 - 音声はPiから出ないが、**文字起こしテキストはClaude API（Anthropic）に送信**される。機微な内容は `--no-summary` を使う。
