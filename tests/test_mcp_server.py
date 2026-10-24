@@ -4,7 +4,8 @@ import anyio
 from mcp import Client, StdioServerParameters
 
 EXPECTED = {"search_voice_memories", "get_voice_memory", "get_recent_memories",
-            "list_voice_tags", "save_voice_memory"}
+            "list_voice_tags", "save_voice_memory",
+            "get_pending_action_memories", "record_action_registration"}
 
 
 def data(r):

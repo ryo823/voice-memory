@@ -285,3 +285,48 @@ def test_ensure_fts_misses_same_count_drift_but_rebuild_fixes_it(db_path):
     with closing(db.connect(db_path)) as conn:
         db.rebuild_fts(conn)
     assert fts_rows(db_path)[0][1] != "stale"
+
+
+def _days_ago(n):
+    from datetime import datetime, timedelta, timezone
+    return (datetime.now(timezone.utc) - timedelta(days=n)).isoformat(timespec="seconds")
+
+
+def test_pending_window_and_exclusion(db_path):
+    new = save(db_path, title="新しい", recorded_at=_days_ago(1))
+    save(db_path, title="古い", recorded_at=_days_ago(30))
+    assert [m["id"] for m in db.pending_memories(db_path=db_path)] == [new["id"]]
+    assert len(db.pending_memories(days=60, db_path=db_path)) == 2
+    db.record_registration(new["id"], "event", "evt1", db_path)
+    assert db.pending_memories(db_path=db_path) == []
+
+
+def test_pending_handles_offsets(db_path):
+    from datetime import datetime, timedelta, timezone
+    jst = timezone(timedelta(hours=9))
+    m = save(db_path, recorded_at=(datetime.now(jst) - timedelta(hours=1)).isoformat(timespec="seconds"))
+    assert [x["id"] for x in db.pending_memories(days=1, db_path=db_path)] == [m["id"]]
+
+
+def test_record_registration_rules(db_path):
+    m = save(db_path)
+    assert db.record_registration(m["id"], "none", db_path=db_path)["external_id"] is None
+    assert db.pending_memories(db_path=db_path) == []
+    with pytest.raises(db.ValidationError):
+        db.record_registration(m["id"], "event", db_path=db_path)  # external_id required
+    with pytest.raises(db.ValidationError):
+        db.record_registration(m["id"], "none", "x", db_path=db_path)
+    with pytest.raises(db.ValidationError):
+        db.record_registration(m["id"], "todo", "x", db_path=db_path)
+    with pytest.raises(db.NotFoundError):
+        db.record_registration("nope", "task", "t1", db_path=db_path)
+    with pytest.raises(db.ValidationError):
+        db.pending_memories(days=0, db_path=db_path)
+
+
+def test_registrations_cascade(db_path):
+    m = save(db_path)
+    db.record_registration(m["id"], "task", "t1", db_path)
+    with closing(db.connect(db_path)) as c:
+        c.execute("DELETE FROM memories WHERE id = ?", (m["id"],)); c.commit()
+        assert c.execute("SELECT COUNT(*) FROM registrations").fetchone()[0] == 0

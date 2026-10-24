@@ -9,7 +9,7 @@ import os
 import sqlite3
 import uuid
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -23,6 +23,9 @@ MAX_QUERY = 200
 MAX_LIMIT = 50
 DEFAULT_LIMIT = 10
 SNIPPET_LEN = 200
+DEFAULT_PENDING_DAYS = 7
+MAX_PENDING_DAYS = 365
+REGISTRATION_KINDS = ("event", "task", "none")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS memories (
@@ -46,6 +49,16 @@ CREATE TABLE IF NOT EXISTS memory_tags (
     PRIMARY KEY (memory_id, tag_id)
 );
 CREATE INDEX IF NOT EXISTS idx_memory_tags_tag ON memory_tags(tag_id);
+-- A memory with a row here has been reviewed for calendar/TODO suggestions and is not proposed again.
+-- kind 'none' means "reviewed, nothing registered" (external_id stays NULL).
+CREATE TABLE IF NOT EXISTS registrations (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    memory_id   TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+    kind        TEXT NOT NULL CHECK (kind IN ('event', 'task', 'none')),
+    external_id TEXT,
+    created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_registrations_memory ON registrations(memory_id);
 -- Keyed by memory_id, not memories.rowid: memories has a TEXT primary key, so VACUUM may renumber rowids.
 CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
     memory_id UNINDEXED, title, summary, transcript, tags, tokenize = 'trigram'
@@ -336,6 +349,43 @@ def recent_memories(limit: int = DEFAULT_LIMIT, db_path=None) -> list[dict]:
             "SELECT * FROM memories ORDER BY recorded_at DESC, created_at DESC LIMIT ?", (limit,)
         ).fetchall()
         return _summarize(conn, rows)
+
+
+def pending_memories(days: int = DEFAULT_PENDING_DAYS, limit: int = DEFAULT_LIMIT, db_path=None) -> list[dict]:
+    """Memories recorded in the last `days` days that have no registrations row yet, newest first."""
+    if isinstance(days, bool) or not isinstance(days, int) or days < 1:
+        raise ValidationError("days must be a positive integer")
+    days = min(days, MAX_PENDING_DAYS)
+    limit = _clean_limit(limit)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+    with closing(connect(db_path)) as conn:
+        rows = conn.execute(
+            "SELECT m.* FROM memories m WHERE julianday(m.recorded_at) >= julianday(?) "
+            "AND NOT EXISTS (SELECT 1 FROM registrations r WHERE r.memory_id = m.id) "
+            "ORDER BY m.recorded_at DESC, m.created_at DESC LIMIT ?",
+            (cutoff, limit),
+        ).fetchall()
+        return _summarize(conn, rows)
+
+
+def record_registration(memory_id: str, kind: str, external_id: str | None = None, db_path=None) -> dict:
+    """Record that a memory was reviewed: an event/task created elsewhere (external_id required) or 'none'."""
+    memory_id = _clean(memory_id, "memory_id", 64, True)
+    kind = _clean(kind, "kind", 10, True)
+    if kind not in REGISTRATION_KINDS:
+        raise ValidationError(f"kind must be one of {', '.join(REGISTRATION_KINDS)}")
+    external_id = _clean(external_id, "external_id", 200, required=kind != "none") or None
+    if kind == "none" and external_id:
+        raise ValidationError("external_id must be empty when kind is 'none'")
+    with closing(connect(db_path)) as conn:
+        with conn:
+            if conn.execute("SELECT 1 FROM memories WHERE id = ?", (memory_id,)).fetchone() is None:
+                raise NotFoundError(f"memory not found: {memory_id}")
+            conn.execute(
+                "INSERT INTO registrations (memory_id, kind, external_id, created_at) VALUES (?,?,?,?)",
+                (memory_id, kind, external_id, _now()),
+            )
+    return {"memory_id": memory_id, "kind": kind, "external_id": external_id}
 
 
 def list_tags(db_path=None) -> list[dict]:

@@ -12,3 +12,9 @@ Google Drive のスコープは `drive.file` のみで、本ツールが作成�
 取得したデータを第三者に提供・販売・利用することはありません。トークンは本人の端末内にのみ保存されます。
 
 Contact: ryosuke.hirayama@gmail.com
+
+## Calendar / Tasks suggestions (phase 1)
+
+Approved events are created in the owner's own Google Calendar through the owner's claude.ai Google Calendar connector, from a Claude Code session the owner is driving. Only the event title, time, and a short description (memory ID and summary) are written; transcripts are never sent. This repository holds no Google credentials for it.
+
+承認した予定は、本人の claude.ai の Google Calendar コネクタ経由で、本人の Calendar にだけ作成します。書き込むのは予定名・日時・説明（メモIDと要約）のみで、文字起こし全文は送りません。

@@ -59,6 +59,18 @@ def get_recent_memories(limit: int = db.DEFAULT_LIMIT) -> dict:
 
 
 @mcp.tool(annotations=READ)
+def get_pending_action_memories(days: int = db.DEFAULT_PENDING_DAYS, limit: int = db.DEFAULT_LIMIT) -> dict:
+    """List recent memories not yet reviewed for calendar events / TODOs (newest first).
+
+    Covers the last `days` days (default 7); memories already recorded with record_action_registration
+    are left out. Use get_voice_memory for a memory's full transcript. recorded_at is the base for
+    resolving relative dates like "next Tuesday" (timezone Asia/Tokyo). limit is capped at 50.
+    """
+    results = db.pending_memories(days, limit)
+    return {"notice": NOTICE, "count": len(results), "results": results}
+
+
+@mcp.tool(annotations=READ)
 def list_voice_tags() -> dict:
     """List all tags with the number of memories using each."""
     return {"tags": db.list_tags()}
@@ -75,6 +87,17 @@ def save_voice_memory(
     summary <=2000 chars; up to 20 tags of <=50 chars each."""
     saved = db.save_memory(title, transcript, summary, tags, source="mcp")
     return {"saved": saved}
+
+
+@mcp.tool(annotations=WRITE)
+def record_action_registration(memory_id: str, kind: str, external_id: str | None = None) -> dict:
+    """Record that a memory was handled so it is not proposed again. Call it once the user has approved
+    and the event/task was created elsewhere.
+
+    kind: 'event' (external_id = the calendar event id), 'task' (external_id = the task id), or 'none'
+    (reviewed, nothing to register; no external_id). Does not create anything in Calendar or Tasks.
+    """
+    return {"recorded": db.record_registration(memory_id, kind, external_id)}
 
 
 def main() -> None:
