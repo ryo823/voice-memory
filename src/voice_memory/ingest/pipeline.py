@@ -10,10 +10,11 @@ a memory without its ingest record (or the reverse). Source audio is never delet
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 import sqlite3
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .. import database as db
@@ -24,6 +25,10 @@ from .transcribe import Transcriber, TranscribeError
 log = logging.getLogger("voice_memory.ingest")
 
 SOURCE = "audio-ingest"
+# Voice Memos are named "YYYYMMDD HHMMSS-<id>.m4a" in the device's local time; mtime is unreliable for them
+# (an iCloud bulk download stamps every old memo with the download time).
+VOICEMEMO_NAME = re.compile(r"^(\d{8})[ _](\d{6})(?!\d)")
+VOICEMEMO_TZ = timezone(timedelta(hours=9), "Asia/Tokyo")
 STALE_PROCESSING_SEC = 3600
 
 SCHEMA = """
@@ -87,6 +92,18 @@ def _claim(conn: sqlite3.Connection, sha: str, name: str, stored: str, info: aud
         return row
 
 
+def recorded_at_for(src: Path) -> str:
+    """Recording time: the Voice Memos file-name timestamp (as JST) if it parses, else the file's mtime (UTC)."""
+    m = VOICEMEMO_NAME.match(src.name)
+    if m:
+        try:
+            return datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S").replace(
+                tzinfo=VOICEMEMO_TZ).astimezone(timezone.utc).isoformat(timespec="seconds")
+        except ValueError:
+            pass
+    return datetime.fromtimestamp(src.stat().st_mtime, timezone.utc).isoformat(timespec="seconds")
+
+
 def _store_copy(src: Path, sha: str, recordings: Path) -> str:
     """Copy into recordings/YYYY/<sha12>_<name>; returns the path relative to `recordings`."""
     year = datetime.fromtimestamp(src.stat().st_mtime, timezone.utc).strftime("%Y")
@@ -148,7 +165,7 @@ def process_file(
             if not title:
                 title = f"{src.stem} ({datetime.now().strftime('%Y-%m-%d %H:%M')})"[: db.MAX_TITLE]
 
-            recorded_at = datetime.fromtimestamp(src.stat().st_mtime, timezone.utc).isoformat(timespec="seconds")
+            recorded_at = recorded_at_for(src)
             with conn:  # memory + done mark: one transaction
                 saved = db.save_memory(
                     title, transcript, summary, tags, source=SOURCE,

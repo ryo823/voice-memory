@@ -379,3 +379,19 @@ def test_inbox_ingests_once_and_caps_retries(tmp_path):
     bad.write_bytes(b"yy"); os.utime(bad, (old, old))  # changed file gets a fresh budget
     inbox.run(box, state, ingest, now)
     assert calls.count("b.wav") == inbox.MAX_ATTEMPTS + 1
+
+
+def test_recorded_at_prefers_voicememo_filename_over_mtime(env, tmp_path):
+    kw, f = env
+    vm = tmp_path / "20200617 091051-CCAA9AFE.wav"
+    f.rename(vm)
+    r = run(vm, env)
+    assert db.get_memory(r["memory_id"], kw["db_path"])["recorded_at"] == "2020-06-17T00:10:51+00:00"  # JST -> UTC
+
+
+@pytest.mark.parametrize("name", ["20261024115101.wav", "20201399 091051-X.wav", "meeting.wav", "202006170910519.wav"])
+def test_recorded_at_falls_back_to_mtime(tmp_path, name):
+    p = tmp_path / name
+    p.write_bytes(b"x")
+    os.utime(p, (1_700_000_000, 1_700_000_000))
+    assert pipeline.recorded_at_for(p) == "2023-11-14T22:13:20+00:00"
