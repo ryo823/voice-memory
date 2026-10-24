@@ -1,0 +1,8 @@
+[Unit]
+Description=Back up the voice-memory database and recordings
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/voice-memory
+ExecStart=%h/voice-memory/.venv/bin/voice-memory-backup
+Nice=15
