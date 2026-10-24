@@ -16,10 +16,12 @@ import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from .. import notify
 from ..database import PROJECT_ROOT
 from . import config
 from .audio import InvalidAudioError
@@ -33,6 +35,7 @@ log = logging.getLogger("voice_memory.ingest")
 CLIP_MAC = "C3:31:EB:7C:F4:8D"
 SDK = Path.home() / "clip-sdk"
 MAX_ATTEMPTS = 3
+UNREACHABLE_AFTER = 12 * 3600  # notify when the Clip has not answered over BLE for this long
 CONTROL = PROJECT_ROOT / "scripts" / "clip_control.py"
 SESSION_RE = re.compile(r"^\s+(\d{14}):")
 
@@ -168,6 +171,24 @@ def _fetch_new(clip: Clip, state: dict, ingest: Callable[[Path], dict], script: 
             log.error("session %s failed (attempt %d/%d): %s", s, entry["attempts"], MAX_ATTEMPTS, e)
 
 
+def _report(result: dict, state: dict, now: float | None = None) -> None:
+    """Failure notifications. Never includes transcripts or error details, only counts and session ids."""
+    now = time.time() if now is None else now
+    if result["failed"]:
+        notify.notify("clip-sync", f"{len(result['failed'])} session(s) failed to ingest: "
+                      f"{', '.join(result['failed'][:5])}; see logs/ingest.log")
+    elif result["done"] or not result["new"]:
+        notify.resolve("clip-sync")
+    meta = state.setdefault("_meta", {})
+    if result["clip"] is not None:
+        meta["last_reachable"] = now
+        notify.resolve("clip-unreachable")
+    else:
+        last = meta.setdefault("last_reachable", now)
+        if now - last > UNREACHABLE_AFTER:
+            notify.notify("clip-unreachable", f"Clip not reachable over BLE for {int((now - last) // 3600)}h")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="voice-memory-clip-sync", description=__doc__)
     ap.add_argument("--dry-run", action="store_true", help="only report new sessions")
@@ -205,6 +226,8 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = sync(Clip(), state, lambda p: process_file(p, transcriber, summarizer), script, args.dry_run,
                           not args.no_charger_control)
+            if not args.dry_run:
+                _report(result, state)
         finally:
             if not args.dry_run:
                 save_state(path, state)

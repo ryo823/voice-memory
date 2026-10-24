@@ -1,5 +1,6 @@
 [Unit]
 Description=Back up the voice-memory database and recordings
+OnFailure=voice-memory-notify@%n.service
 
 [Service]
 Type=oneshot

@@ -1,0 +1,7 @@
+[Unit]
+Description=Notify that systemd unit %i failed
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/voice-memory
+ExecStart=%h/voice-memory/.venv/bin/voice-memory-notify --unit %i

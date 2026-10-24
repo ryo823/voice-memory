@@ -21,7 +21,8 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from . import database as db
+from . import database as db, notify
+from .ingest import config
 from .ingest.config import recordings_dir
 
 log = logging.getLogger("voice_memory.backup")
@@ -167,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--verify", action="store_true", help="restore-check the newest snapshot instead of backing up")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    config.load_dotenv()
     dest = (args.dest or backup_dir()).expanduser()
     try:
         if args.verify:
@@ -180,7 +182,9 @@ def main(argv: list[str] | None = None) -> int:
                 result["uploaded_to"] = args.rclone_remote
     except (BackupError, sqlite3.Error, OSError) as e:
         log.error("%s", e)
+        notify.notify("backup-verify" if args.verify else "backup", f"{'restore check' if args.verify else 'backup'} failed: {type(e).__name__}; see journalctl --user -u voice-memory-backup")
         return 1
+    notify.resolve("backup-verify" if args.verify else "backup")
     print(json.dumps(result, ensure_ascii=False))
     return 0
 

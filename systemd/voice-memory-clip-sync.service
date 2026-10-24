@@ -1,5 +1,6 @@
 [Unit]
 Description=Fetch new reSpeaker Clip recordings and ingest them into voice-memory
+OnFailure=voice-memory-notify@%n.service
 
 [Service]
 Type=oneshot

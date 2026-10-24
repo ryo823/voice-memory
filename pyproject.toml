@@ -18,6 +18,7 @@ voice-memory-init = "voice_memory.database:init_cli"
 voice-memory-ingest = "voice_memory.ingest.cli:main"
 voice-memory-clip-sync = "voice_memory.ingest.clip_sync:main"
 voice-memory-backup = "voice_memory.backup:main"
+voice-memory-notify = "voice_memory.notify:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

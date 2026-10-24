@@ -196,6 +196,12 @@ Clip が Pi の BLE 圏内にいる間、新しいセッションを取得して
 - Google Drive へのコピー: `--rclone-remote gdrive-vm:voice-memory-backup`（または `VOICE_MEMORY_RCLONE_REMOTE`）。録音は `rclone copy`（リモート側は削除しない）、DBスナップショットは `rclone sync`（`voice_memory-*.db` のみ）。最後に録音を `rclone check` で突き合わせる。**平文で置くので、専用フォルダを共有しない・rcloneのscopeは `drive.file`・アカウントは2段階認証にする。** 設定は `rclone config`（ヘッドレスのPiでは auto config を n にし、PCで `rclone authorize "drive"` したトークンを貼る）。
 - 毎日 03:30 の自動実行は `systemd/voice-memory-backup.{service,timer}`（有効化は clip-sync と同じ手順）。
 
+## 失敗通知（Discord）
+バックアップと clip-sync の失敗、Clip が12時間以上 BLE で応答しない状態を Discord に通知する（`voice-memory-notify`）。通知は短い状態行のみで、文字起こし・要約・エラー詳細は送らない。同じ失敗は6時間に1回まで、復旧時に1回通知する。
+- Discord のチャンネル設定 → 連携サービス → ウェブフック で URL を作り、`.env` に `VOICE_MEMORY_DISCORD_WEBHOOK=...` を追記（`chmod 600`。URLは秘密情報で、ログには出さない）。
+- 動作確認: `voice-memory-notify --test`
+- クラッシュ（例外終了）も拾うため、`systemd/voice-memory-notify@.service` と各サービスの `OnFailure=` をユーザーユニットとして配置する（`cp systemd/* ~/.config/systemd/user/ && systemctl --user daemon-reload`）。
+
 ## ロードマップ
 - [x] ReSpeaker Clip からの録音取得（BLE で一覧 → Wi-Fi で取得。下記「reSpeaker Clip から取り込む」）
 - [x] ローカル音声の文字起こし（faster-whisper）・要約・タグ付け（Claude）。実測: 41分の音声を約26分（0.62x）、43秒の録音を約24秒（要約込み）
