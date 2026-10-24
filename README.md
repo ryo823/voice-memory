@@ -218,7 +218,9 @@ MacがiCloudと同期したボイスメモ（.m4a）を、Mac→Pi の rsync で
 - [x] 自動取り込み（systemd ユーザーtimer。下記「自動取り込み」）
 - [x] バックアップ（DBスナップショット＋録音の差分コピー、Google Drive へのコピー、復元確認。上記「バックアップ」、[Drive設定](docs/drive-backup-setup.md)）
 - [x] 失敗通知（Discord。上記「失敗通知」）
-- [ ] FTS5 / ベクトル検索
+- [x] 全文検索 FTS5（trigram。2文字以下はLIKE。実機DB検証は [docs/fts-verification.md](docs/fts-verification.md)）
+- [ ] ベクトル検索（FTS5で足りない場合のみ。未着手）
+- [ ] FTS索引の整合性チェックの強化（現状は件数比較のみ。同数のずれは `rebuild_fts()` を手動実行）
 
 ## ライセンス
 MIT（[LICENSE](LICENSE)）

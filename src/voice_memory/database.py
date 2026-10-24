@@ -92,7 +92,12 @@ def init_db(db_path: Path | str | None = None) -> None:
 
 
 def ensure_fts(conn: sqlite3.Connection) -> None:
-    """Index records of an existing DB that gained the FTS table (also heals count drift)."""
+    """Index records of an existing DB that gained the FTS table (also heals count drift).
+
+    Only the row COUNT is compared. It catches a missing/empty index and rows added or removed behind the
+    index's back, but not same-count drift (a memory edited or re-tagged outside save_memory, or one stale
+    row swapped for another); `rebuild_fts()` fixes those on demand. Callers must have no open transaction.
+    """
     if _fts_count(conn) != _memories_count(conn):
         rebuild_fts(conn)
 
@@ -108,9 +113,11 @@ def _fts_count(conn: sqlite3.Connection) -> int:
 def rebuild_fts(conn: sqlite3.Connection) -> int:
     """Rebuild the whole FTS index from memories + tags. Idempotent and all-or-nothing.
 
-    Returns the number of indexed memories. Never touches the source tables.
+    Returns the number of indexed memories. Never touches the source tables. Refuses to run inside the
+    caller's open transaction (committing it here would silently publish the caller's half-done work).
     """
-    conn.commit()  # no open transaction may be pending
+    if conn.in_transaction:
+        raise RuntimeError("rebuild_fts() must not be called inside an open transaction")
     conn.execute("BEGIN IMMEDIATE")
     try:
         conn.execute("DELETE FROM memories_fts")

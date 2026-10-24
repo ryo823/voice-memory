@@ -261,3 +261,27 @@ def test_init_db_heals_drift(db_path):
         c.execute("DELETE FROM memories_fts")
     db.init_db(db_path)
     assert len(fts_rows(db_path)) == 1
+
+
+def test_rebuild_fts_refuses_open_transaction_and_keeps_it_pending(db_path):
+    save(db_path)
+    with db.connect(db_path) as conn:
+        conn.execute("UPDATE memories SET title = 'pending-title'")  # opens the caller's transaction
+        assert conn.in_transaction
+        with pytest.raises(RuntimeError):
+            db.rebuild_fts(conn)
+        assert conn.in_transaction  # still the caller's, not committed behind its back
+        conn.rollback()
+    with sqlite3.connect(db_path) as c:
+        assert c.execute("SELECT COUNT(*) FROM memories WHERE title = 'pending-title'").fetchone()[0] == 0
+
+
+def test_ensure_fts_misses_same_count_drift_but_rebuild_fixes_it(db_path):
+    save(db_path)
+    with sqlite3.connect(db_path) as c:
+        c.execute("UPDATE memories_fts SET title = 'stale'")  # same count, wrong content
+    db.init_db(db_path)
+    assert fts_rows(db_path)[0][1] == "stale"  # documented limitation of the count check
+    with closing(db.connect(db_path)) as conn:
+        db.rebuild_fts(conn)
+    assert fts_rows(db_path)[0][1] != "stale"
