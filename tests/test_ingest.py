@@ -299,3 +299,39 @@ def test_clip_sync_resumes_recording_off_charger(tmp_path):
     clip, calls = _fake_clip(tmp_path, clip_state="IDLE", charging=True)  # on the charger: left idle
     r = clip_sync.sync(clip, {}, lambda p: {}, Path("clip_wifi_sync.sh"))
     assert "resumed" not in r and not any(c[3] == "start" for c in calls if c[1].endswith("clip_control.py"))
+
+
+def test_clip_fetch_nonzero_exit_and_stale_ogg_are_failures(tmp_path):
+    import subprocess
+    from voice_memory.ingest import clip_sync
+
+    s = "20261024115101"
+    d = tmp_path / "recordings" / "Clip" / s
+    d.mkdir(parents=True)
+    (d / f"{s}.ogg").write_bytes(b"partial")  # left behind by an earlier, interrupted attempt
+
+    seen = {}
+
+    def runner(cmd, timeout):
+        seen["existed_at_start"] = (d / f"{s}.ogg").exists()
+        return subprocess.CompletedProcess(cmd, 124, "timeout", "")
+
+    clip = clip_sync.Clip(runner=runner, sdk=tmp_path)
+    assert clip.fetch(s, Path("x.sh")) is None  # script failed: even a written file is not trusted
+    assert seen["existed_at_start"] is False  # stale file was removed before the fetch
+
+    def writes_then_fails(cmd, timeout):
+        (d / f"{s}.ogg").write_bytes(b"cut off")
+        return subprocess.CompletedProcess(cmd, 124, "", "")
+
+    assert clip_sync.Clip(runner=writes_then_fails, sdk=tmp_path).fetch(s, Path("x.sh")) is None
+
+
+def test_clip_sync_failed_fetch_still_resumes_recording(tmp_path):
+    from voice_memory.ingest import clip_sync
+
+    clip, calls = _fake_clip(tmp_path, clip_state="IDLE", charging=False, fetch_ok=False)
+    state = {}
+    r = clip_sync.sync(clip, state, lambda p: {}, Path("clip_wifi_sync.sh"))
+    assert r["failed"] == ["20261024115101"] and r["resumed"] is True
+    assert state["20261024115101"]["status"] == "failed"

@@ -96,8 +96,12 @@ class Clip:
         return parse_sessions(r.stdout) if r.returncode == 0 else None
 
     def fetch(self, session: str, script: Path) -> Path | None:
-        self.runner([str(script), session], 400)
         ogg = self.sdk / "recordings" / "Clip" / session / f"{session}.ogg"
+        ogg.unlink(missing_ok=True)  # never mistake a partial file from an earlier attempt for this fetch
+        r = self.runner([str(script), session], 400)
+        if r.returncode != 0:
+            log.warning("fetch script for %s exited %d: %s", session, r.returncode, (r.stdout or "")[-300:])
+            return None
         return ogg if ogg.is_file() and ogg.stat().st_size > 0 else None
 
 
