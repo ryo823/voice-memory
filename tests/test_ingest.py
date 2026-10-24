@@ -198,25 +198,32 @@ def test_api_key_never_logged(env, monkeypatch, caplog):
 
 
 # --- clip_sync ---
-def _fake_clip(tmp_path, clip_state="IDLE", sessions=("20261024115101",), fetch_ok=True):
+def _fake_clip(tmp_path, clip_state="IDLE", sessions=("20261024115101",), fetch_ok=True, charging=False):
+    import json
     import subprocess
     from voice_memory.ingest import clip_sync
 
     calls = []
+    box = {"state": clip_state}
 
     def runner(cmd, timeout):
         calls.append(cmd)
         name = cmd[0]
+        if cmd[1].endswith("clip_control.py"):
+            if box["state"] is None:
+                return subprocess.CompletedProcess(cmd, 1, "", "ConnectionError")
+            if cmd[3] == "stop" and box["state"] == "RECORDING":
+                box["state"] = "IDLE"
+            if cmd[3] == "start" and box["state"] == "IDLE":
+                box["state"] = "RECORDING"
+            out = json.dumps({"state": box["state"], "charging": charging, "battery": 72})
+            return subprocess.CompletedProcess(cmd, 0, out, "")
         if name.endswith("clip_wifi_sync.sh"):
             if fetch_ok:
                 d = tmp_path / "recordings" / "Clip" / cmd[1]
                 d.mkdir(parents=True, exist_ok=True)
                 (d / f"{cmd[1]}.ogg").write_bytes(b"x")
             return subprocess.CompletedProcess(cmd, 0, "", "")
-        if "status" in cmd:
-            if clip_state is None:
-                return subprocess.CompletedProcess(cmd, 1, "", "ConnectionError")
-            return subprocess.CompletedProcess(cmd, 0, f"State:    {clip_state}\nBattery:  72%\n", "")
         out = f"Sessions: {len(sessions)}\n" + "".join(f"  {s}: 1 files, 155.5 KB\n" for s in sessions)
         return subprocess.CompletedProcess(cmd, 0, out, "")
 
@@ -242,6 +249,10 @@ def test_clip_sync_quiet_when_out_of_range_or_recording(tmp_path):
     from voice_memory.ingest import clip_sync
 
     for st in (None, "RECORDING"):
+        clip, calls = _fake_clip(tmp_path, clip_state=st, charging=True)
+        r = clip_sync.sync(clip, {}, lambda p: {}, Path("s.sh"), follow_charger=False)
+        assert r["new"] == [] and not any(c[0].endswith("s.sh") for c in calls)
+    for st in (None, "WIFI_SYNC"):
         clip, calls = _fake_clip(tmp_path, clip_state=st)
         r = clip_sync.sync(clip, {}, lambda p: {}, Path("s.sh"))
         assert r["new"] == [] and not any(c[0].endswith("s.sh") for c in calls)
@@ -253,7 +264,7 @@ def test_clip_sync_ignored_and_retry_limit(tmp_path):
     clip, _ = _fake_clip(tmp_path, sessions=("20261024032642", "20261024115101"), fetch_ok=False)
     state = {"20261024032642": {"status": "ignored"}}
     for _ in range(clip_sync.MAX_ATTEMPTS + 2):
-        r = clip_sync.sync(clip, state, lambda p: {}, Path("s.sh"))
+        r = clip_sync.sync(clip, state, lambda p: {}, Path("s.sh"), follow_charger=False)
     assert state["20261024115101"]["attempts"] == clip_sync.MAX_ATTEMPTS
     assert state["20261024115101"]["status"] == "failed" and r["new"] == []
     assert "20261024032642" not in r["new"]
@@ -267,3 +278,24 @@ def test_clip_sync_dry_run_changes_nothing(tmp_path):
     r = clip_sync.sync(clip, state, lambda p: {}, Path("s.sh"), dry_run=True)
     assert r["new"] == ["20261024115101"] and state == {}
     assert not any(c[0].endswith("s.sh") for c in calls)
+
+
+def test_clip_sync_stops_recording_on_charger_then_fetches(tmp_path):
+    from voice_memory.ingest import clip_sync
+
+    clip, calls = _fake_clip(tmp_path, clip_state="RECORDING", charging=True)
+    r = clip_sync.sync(clip, {}, lambda p: {"memory_id": "m1"}, Path("clip_wifi_sync.sh"))
+    assert r["stopped"] is True and r["done"] == ["20261024115101"]
+    assert [c[3] for c in calls if c[1].endswith("clip_control.py")] == ["state", "stop"]  # still charging: no restart
+
+
+def test_clip_sync_resumes_recording_off_charger(tmp_path):
+    from voice_memory.ingest import clip_sync
+
+    clip, calls = _fake_clip(tmp_path, clip_state="IDLE", charging=False)
+    r = clip_sync.sync(clip, {}, lambda p: {"memory_id": "m1"}, Path("clip_wifi_sync.sh"))
+    assert r["resumed"] is True
+    assert [c[3] for c in calls if c[1].endswith("clip_control.py")] == ["state", "start"]
+    clip, calls = _fake_clip(tmp_path, clip_state="IDLE", charging=True)  # on the charger: left idle
+    r = clip_sync.sync(clip, {}, lambda p: {}, Path("clip_wifi_sync.sh"))
+    assert "resumed" not in r and not any(c[3] == "start" for c in calls if c[1].endswith("clip_control.py"))

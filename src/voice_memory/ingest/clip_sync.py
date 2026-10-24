@@ -2,6 +2,9 @@
 
 Meant to run from a timer. If the Clip is out of BLE range it exits quietly; Wi-Fi (ClipAP) is only
 touched when there is a new session to fetch. Nothing is ever deleted from the Clip.
+
+Recording follows the charger: a Clip that is recording while charging is stopped (so the session is
+finalized and fetched); an idle Clip that is off the charger is set recording again after the fetch.
 """
 from __future__ import annotations
 
@@ -30,6 +33,7 @@ log = logging.getLogger("voice_memory.ingest")
 CLIP_MAC = "C3:31:EB:7C:F4:8D"
 SDK = Path.home() / "clip-sdk"
 MAX_ATTEMPTS = 3
+CONTROL = PROJECT_ROOT / "scripts" / "clip_control.py"
 SESSION_RE = re.compile(r"^\s+(\d{14}):")
 
 Runner = Callable[[list[str], int], subprocess.CompletedProcess]
@@ -62,9 +66,12 @@ def parse_sessions(output: str) -> list[str]:
     return [m.group(1) for line in output.splitlines() if (m := SESSION_RE.match(line))]
 
 
-def parse_clip_state(output: str) -> str | None:
-    m = re.search(r"^State:\s*(\w+)", output, re.M)
-    return m.group(1) if m else None
+def parse_clip_info(output: str) -> dict | None:
+    try:
+        info = json.loads(output.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
+    return info if isinstance(info, dict) and "state" in info else None
 
 
 @dataclass
@@ -78,9 +85,11 @@ class Clip:
                "--device", self.mac, "--timeout", "20", *args]
         return self.runner(cmd, timeout)
 
-    def status(self) -> str | None:
-        r = self._cli("status")
-        return parse_clip_state(r.stdout) if r.returncode == 0 else None
+    def control(self, action: str) -> dict | None:
+        """action: state | stop | start. Returns {"state", "charging", "battery"} after the action."""
+        cmd = [str(self.sdk / "venv/bin/python"), str(CONTROL), self.mac, action]
+        r = self.runner(cmd, 60)
+        return parse_clip_info(r.stdout) if r.returncode == 0 else None
 
     def sessions(self) -> list[str] | None:
         r = self._cli("list")
@@ -92,27 +101,53 @@ class Clip:
         return ogg if ogg.is_file() and ogg.stat().st_size > 0 else None
 
 
-def sync(clip: Clip, state: dict, ingest: Callable[[Path], dict], script: Path, dry_run: bool = False) -> dict:
+def sync(clip: Clip, state: dict, ingest: Callable[[Path], dict], script: Path, dry_run: bool = False,
+         follow_charger: bool = True) -> dict:
     """Returns {"clip": state|None, "new": [...], "done": [...], "failed": [...]}. Mutates `state`."""
     out: dict = {"clip": None, "new": [], "done": [], "failed": []}
-    out["clip"] = clip.status()
-    if out["clip"] is None:
+    info = clip.control("state")
+    out["clip"] = info["state"] if info else None
+    if info is None:
         log.info("Clip not reachable over BLE; nothing to do")
         return out
-    if out["clip"] != "IDLE":
-        log.info("Clip is %s; not touching it", out["clip"])
+    if info["state"] == "RECORDING" and info.get("charging") and follow_charger and not dry_run:
+        log.info("Clip is recording on the charger; stopping the recording")
+        info = clip.control("stop") or info
+        out["clip"] = info["state"]
+        out["stopped"] = info["state"] == "IDLE"
+    if info["state"] != "IDLE":
+        log.info("Clip is %s; not touching it", info["state"])
         return out
+    resume = follow_charger and not dry_run and not info.get("charging")
+    try:
+        _fetch_new(clip, state, ingest, script, dry_run, out)
+    finally:
+        if resume:
+            _resume_recording(clip, out)
+    return out
+
+
+def _resume_recording(clip: Clip, out: dict) -> None:
+    # Right after a Wi-Fi fetch the Clip is briefly WIFI_SYNC and may refuse; the next run retries.
+    info = clip.control("start")
+    out["resumed"] = bool(info and info["state"] == "RECORDING")
+    if not out["resumed"]:
+        log.warning("could not restart recording (clip: %s)", info and info["state"])
+
+
+def _fetch_new(clip: Clip, state: dict, ingest: Callable[[Path], dict], script: Path, dry_run: bool,
+               out: dict) -> None:
     sessions = clip.sessions()
     if sessions is None:
         log.warning("could not list Clip sessions")
-        return out
+        return
     for s in sessions:
         entry = state.get(s, {})
         if entry.get("status") in ("done", "ignored") or entry.get("attempts", 0) >= MAX_ATTEMPTS:
             continue
         out["new"].append(s)
     if dry_run:
-        return out
+        return
     for s in out["new"]:
         entry = state.setdefault(s, {})
         entry["attempts"] = entry.get("attempts", 0) + 1
@@ -127,7 +162,6 @@ def sync(clip: Clip, state: dict, ingest: Callable[[Path], dict], script: Path, 
             entry.update(status="failed", error=str(e)[:300])
             out["failed"].append(s)
             log.error("session %s failed (attempt %d/%d): %s", s, entry["attempts"], MAX_ATTEMPTS, e)
-    return out
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -136,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ignore", nargs="+", metavar="SESSION", help="mark sessions as never to ingest, then exit")
     ap.add_argument("--retry", nargs="+", metavar="SESSION", help="reset failed sessions so they are tried again")
     ap.add_argument("--no-summary", action="store_true")
+    ap.add_argument("--no-charger-control", action="store_true",
+                    help="never stop/start recording based on the charger")
     args = ap.parse_args(argv)
 
     _setup_logging()
@@ -163,7 +199,8 @@ def main(argv: list[str] | None = None) -> int:
         summarizer = None if args.no_summary else ClaudeSummarizer(claude)
         script = PROJECT_ROOT / "scripts" / "clip_wifi_sync.sh"
         try:
-            result = sync(Clip(), state, lambda p: process_file(p, transcriber, summarizer), script, args.dry_run)
+            result = sync(Clip(), state, lambda p: process_file(p, transcriber, summarizer), script, args.dry_run,
+                          not args.no_charger_control)
         finally:
             if not args.dry_run:
                 save_state(path, state)
