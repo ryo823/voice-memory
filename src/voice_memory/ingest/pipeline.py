@@ -118,7 +118,7 @@ def process_file(
 
     with closing(db.connect(db_path)) as conn:
         conn.executescript(db.SCHEMA)
-        db.ensure_fts(conn)
+        db.ensure_fts(conn)  # ingest bypasses init_db; index an old DB before save_memory writes to FTS
         conn.executescript(SCHEMA)
         try:
             stored = _store_copy(src, sha, recordings)

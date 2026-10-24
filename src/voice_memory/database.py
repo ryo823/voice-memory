@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS memory_tags (
     PRIMARY KEY (memory_id, tag_id)
 );
 CREATE INDEX IF NOT EXISTS idx_memory_tags_tag ON memory_tags(tag_id);
+-- Keyed by memory_id, not memories.rowid: memories has a TEXT primary key, so VACUUM may renumber rowids.
 CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
     memory_id UNINDEXED, title, summary, transcript, tags, tokenize = 'trigram'
 );

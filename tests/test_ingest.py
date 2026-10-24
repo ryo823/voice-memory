@@ -95,6 +95,19 @@ def test_found_via_mcp_tools(env):
     anyio.run(go)
 
 
+def test_ingest_into_db_without_fts_indexes_old_and_new(env):
+    kw, f = env
+    db.save_memory("既存の記録", "旧データの本文", db_path=kw["db_path"])
+    with sqlite3.connect(kw["db_path"]) as c:
+        c.execute("DROP TABLE memories_fts")  # DB created before FTS; ingest runs before init
+    r = run(f, env, llm=FakeLLM())
+    assert r["status"] == "done"
+    assert [x["title"] for x in db.search_memories("旧データ", db_path=kw["db_path"])] == ["既存の記録"]
+    assert [x["id"] for x in db.search_memories("Googleログイン", db_path=kw["db_path"])] == [r["memory_id"]]
+    with sqlite3.connect(kw["db_path"]) as c:
+        assert c.execute("SELECT COUNT(*) FROM memories_fts").fetchone()[0] == 2
+
+
 def test_duplicate_is_skipped(env):
     kw, f = env
     stt = FakeSTT()
