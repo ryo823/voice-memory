@@ -193,7 +193,7 @@ Clip が Pi の BLE 圏内にいる間、新しいセッションを取得して
 - 保存先: `--dest` または `VOICE_MEMORY_BACKUP_DIR`（既定 `~/backups/voice-memory`）。**ディスク故障に備えるなら別ディスク／別ホストを指定する**（同じSSD内だと誤削除・DB破損にしか効かない）。
 - 復元確認: `voice-memory-backup --verify`（最新スナップショットを一時領域に復元し、整合性・アプリでの読み出し・参照している録音ファイルの存在を確認）。
 - 復元: 最新の `voice_memory-*.db` を `data/voice_memory.db` に置き、`recordings/` の中身を `data/recordings/` に戻す（MCP/clip-syncを止めてから）。
-- Google Drive へのコピー: `--rclone-remote gdrive:voice-memory-backup`（または `VOICE_MEMORY_RCLONE_REMOTE`）。録音は `rclone copy`（リモート側は削除しない）、DBスナップショットは `rclone sync`（`voice_memory-*.db` のみ）。最後に録音を `rclone check` で突き合わせる。**平文で置くので、専用フォルダを共有しない・rcloneのscopeは `drive.file`・アカウントは2段階認証にする。** 設定は `rclone config`（ヘッドレスのPiでは auto config を n にし、PCで `rclone authorize "drive"` したトークンを貼る）。
+- Google Drive へのコピー: `--rclone-remote gdrive-vm:voice-memory-backup`（または `VOICE_MEMORY_RCLONE_REMOTE`）。録音は `rclone copy`（リモート側は削除しない）、DBスナップショットは `rclone sync`（`voice_memory-*.db` のみ）。最後に録音を `rclone check` で突き合わせる。**平文で置くので、専用フォルダを共有しない・rcloneのscopeは `drive.file`・アカウントは2段階認証にする。** 設定は `rclone config`（ヘッドレスのPiでは auto config を n にし、PCで `rclone authorize "drive"` したトークンを貼る）。
 - 毎日 03:30 の自動実行は `systemd/voice-memory-backup.{service,timer}`（有効化は clip-sync と同じ手順）。
 
 ## ロードマップ
