@@ -12,3 +12,4 @@ __pycache__/
 .pytest_cache/
 data/clip_sync_state.*
 client_secret_*.json
+data/notify_state.*

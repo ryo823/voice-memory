@@ -206,6 +206,8 @@ Clip が Pi の BLE 圏内にいる間、新しいセッションを取得して
 - [x] ReSpeaker Clip からの録音取得（BLE で一覧 → Wi-Fi で取得。下記「reSpeaker Clip から取り込む」）
 - [x] ローカル音声の文字起こし（faster-whisper）・要約・タグ付け（Claude）。実測: 41分の音声を約26分（0.62x）、43秒の録音を約24秒（要約込み）
 - [x] 自動取り込み（systemd ユーザーtimer。下記「自動取り込み」）
+- [x] バックアップ（DBスナップショット＋録音の差分コピー、Google Drive へのコピー、復元確認。上記「バックアップ」、[Drive設定](docs/drive-backup-setup.md)）
+- [x] 失敗通知（Discord。上記「失敗通知」）
 - [ ] FTS5 / ベクトル検索
 
 ## ライセンス
