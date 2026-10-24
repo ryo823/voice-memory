@@ -190,9 +190,9 @@ Clip が Pi の BLE 圏内にいる間、新しいセッションを取得して
 `sqlite3 data/voice_memory.db ".backup backup.db"`（WAL稼働中でも安全）。`cp` のみは `-wal` を取りこぼすので避ける。
 
 ## ロードマップ
-- [ ] ReSpeaker Clip からの録音取得（BLE/Wi-Fi。下記「音声取り込み」は取得済みのローカルファイルが対象）
-- [x] ローカル音声の文字起こし（faster-whisper）・要約・タグ付け（Claude）。実音声での精度・速度は未検証
-- [ ] 自動取り込み（systemd 等）
+- [x] ReSpeaker Clip からの録音取得（BLE で一覧 → Wi-Fi で取得。下記「reSpeaker Clip から取り込む」）
+- [x] ローカル音声の文字起こし（faster-whisper）・要約・タグ付け（Claude）。実測: 41分の音声を約26分（0.62x）、43秒の録音を約24秒（要約込み）
+- [x] 自動取り込み（systemd ユーザーtimer。下記「自動取り込み」）
 - [ ] FTS5 / ベクトル検索
 
 ## ライセンス
