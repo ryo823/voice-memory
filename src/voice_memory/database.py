@@ -176,7 +176,9 @@ def save_memory(
     recorded_at: str | None = None,
     audio_path: str | None = None,
     db_path: Path | str | None = None,
+    conn: sqlite3.Connection | None = None,
 ) -> dict:
+    """Save a memory. With `conn`, the insert joins the caller's transaction (no commit here)."""
     title = _clean(title, "title", MAX_TITLE, True)
     transcript = _clean(transcript, "transcript", MAX_TRANSCRIPT, True)
     summary = _clean(summary, "summary", MAX_SUMMARY, False)
@@ -198,20 +200,27 @@ def save_memory(
         audio_path = None
 
     memory_id = str(uuid.uuid4())
-    with closing(connect(db_path)) as conn:
-        with conn:  # one transaction
-            conn.execute(
-                "INSERT INTO memories (id, recorded_at, title, summary, transcript, audio_path, source, created_at) "
-                "VALUES (?,?,?,?,?,?,?,?)",
-                (memory_id, recorded_at, title, summary, transcript, audio_path, source, _now()),
+
+    def insert(c: sqlite3.Connection) -> None:
+        c.execute(
+            "INSERT INTO memories (id, recorded_at, title, summary, transcript, audio_path, source, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (memory_id, recorded_at, title, summary, transcript, audio_path, source, _now()),
+        )
+        for name in tag_list:
+            c.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,))
+            c.execute(
+                "INSERT INTO memory_tags (memory_id, tag_id) "
+                "SELECT ?, id FROM tags WHERE name = ?",
+                (memory_id, name),
             )
-            for name in tag_list:
-                conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,))
-                conn.execute(
-                    "INSERT INTO memory_tags (memory_id, tag_id) "
-                    "SELECT ?, id FROM tags WHERE name = ?",
-                    (memory_id, name),
-                )
+
+    if conn is not None:
+        insert(conn)
+    else:
+        with closing(connect(db_path)) as own:
+            with own:  # one transaction
+                insert(own)
     return {"id": memory_id, "recorded_at": recorded_at, "title": title, "tags": tag_list}
 
 

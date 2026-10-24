@@ -7,7 +7,7 @@ name = "voice-memory"
 version = "0.1.0"
 description = "Voice knowledge database with an stdio MCP server"
 requires-python = ">=3.11"
-dependencies = ["mcp>=2.3,<3"]
+dependencies = ["mcp>=2.3,<3", "faster-whisper>=1.1,<2", "anthropic>=2,<3", "av>=14,<17"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
@@ -15,6 +15,7 @@ dev = ["pytest>=8"]
 [project.scripts]
 voice-memory-mcp = "voice_memory.mcp_server:main"
 voice-memory-init = "voice_memory.database:init_cli"
+voice-memory-ingest = "voice_memory.ingest.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

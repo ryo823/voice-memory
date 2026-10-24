@@ -52,7 +52,7 @@ tools: ['search_voice_memories', 'get_voice_memory', 'get_recent_memories', 'lis
 ```
 
 音声由来のメモを SQLite に保存し、MCP (stdio) で Claude Code / Gemini CLI から検索・保存するための基盤。
-現段階はテキストのみ。ReSpeaker Clip 連携・文字起こし・外部API連携は未実装（後続作業）。
+音声ファイルの取り込み（`voice-memory-ingest`）に対応。ReSpeaker Clip からの自動取得・常駐は未実装。
 
 `<path-to>` はこのリポジトリを置いた絶対パス、`<user>@<host>` はSSH接続先に置き換える。
 
@@ -125,12 +125,56 @@ claude mcp add voice-memory -s user -- <path-to>/voice-memory/.venv/bin/voice-me
 - SSH経由で応答がない: `ssh -T <host> true` が無出力で成功するか確認。
 - 検索が部分一致のみ: 仕様。形態素解析/FTS5/ベクトル検索は将来 `database.py` の `search_memories` を差し替えて追加する。
 
+## 音声取り込み（`voice-memory-ingest`）
+
+ローカルの音声ファイル1件を、文字起こし → 要約・タグ → SQLite 保存まで処理する。
+
+```bash
+.venv/bin/voice-memory-ingest /path/to/recording.wav            # 通常
+.venv/bin/voice-memory-ingest /path/to/recording.wav --no-summary   # 文字起こしのみ（APIキー不要）
+```
+
+- 文字起こし: Pi上で `faster-whisper`（CPU, int8, 日本語）。音声は外部に送信されない。モデルは初回に自動ダウンロード（`small` で約0.5GB, `~/.cache/huggingface`）。`VOICE_MEMORY_WHISPER_MODEL` で変更可。
+- 要約・タグ: Claude API（既定 `claude-haiku-5-5`, `VOICE_MEMORY_CLAUDE_MODEL` で変更可）。**文字起こしテキストがAnthropicへ送信される。**
+- APIキー: `ANTHROPIC_API_KEY` を環境変数、または `chmod 600 .env`（Git管理外）に `ANTHROPIC_API_KEY=...` と書く。ログには出力しない。
+- 形式: PyAV で読めるもの（wav/mp3/m4a/ogg 等）。空・破損・非対応ファイルはDB登録前に拒否。ClipのRaw Opus（`.opus`）は読めないため、取得時にSDKが作る `.ogg` を使う（下記）。
+- 重複防止: 音声の SHA-256 を新テーブル `ingested_files`（`CREATE TABLE IF NOT EXISTS`、既存テーブルは不変）で管理。`done` は再実行でスキップ。メモとの紐付け・完了マークは1トランザクション。
+- 失敗時: 元ファイルは削除しない。コピーを `data/recordings/YYYY/<sha12>_<名前>` に保存し、`audio_path` に相対パスを記録。失敗後の再実行は続きから（文字起こし済みなら再実行しない）。1時間以上更新のない `processing` は引き継ぐ。
+- タグ: 既存タグ一覧をClaudeに渡し再利用を優先、最大5個。タグ/要約の形式不正でも文字起こしは保存。API失敗時はメモを作らず `transcribed` で止まる（再実行で再開、または `--no-summary`）。
+- ログ: `logs/ingest.log`。
+- 環境変数 `VOICE_MEMORY_DB` / `VOICE_MEMORY_RECORDINGS` で保存先を切替可（試験用）。
+
+### reSpeaker Clip から取り込む
+
+Clip（"Clip CAAA"）の録音は BLE で一覧を見て、Wi-Fi（ClipAP）で取得する。BLE 経由の転送は音声が来ないため Wi-Fi 必須。
+SDK（Seeed-Projects/respeaker_clip_python）はライセンス表記がないためこのリポジトリには含めず、`~/clip-sdk/{src,venv}` に置く。
+
+```bash
+CLI="$HOME/clip-sdk/venv/bin/python $HOME/clip-sdk/src/tools/clip-cli.py --device C3:31:EB:7C:F4:8D"
+(cd ~/clip-sdk/src && $CLI list)                          # セッション一覧（BLE）
+scripts/clip_wifi_sync.sh <session_id>                    # 取得（wlan0のみ一時的にClipAPへ。終了時に必ず元のWi-Fiへ復帰）
+.venv/bin/voice-memory-ingest ~/clip-sdk/recordings/Clip/<session_id>/<session_id>.ogg
+```
+
+- スクリプトは `sudo -n nmcli`（パスワードなし）を使う。有線LAN（eth0）接続が前提で、SSH/Tailscale は切れない。
+- `wifi on` の初回が BLE 再接続で失敗することがある。再試行すれば通る。
+- BLE は近距離（目安 30cm〜数m）で行う。RSSI が -80 dBm 前後だと認証タイムアウトしやすい。
+- **アプリの「Device unbinding」はClip内の録音を全消去する。** 実行前に必ずアプリでエクスポートすること。`AT+PAIR=reset` も同様に使わない。
+- 再ペアリングが必要な場合: Pi側で `bluetoothctl remove <MAC>` → Clipを近くに置いて `clip-cli ... status`。
+- 音量が非常に小さい（会話が -50 dBFS 以下）録音は VAD が全除外して文字起こしが空になり得る。マイクを口元に近づけて録音する。
+
+### プライバシー・運用上の注意
+- 録音には他人の会話が含まれ得る。録音前に相手の同意を得ること（職場・店舗等のルールや法令も確認）。
+- 音声はPiから出ないが、**文字起こしテキストはClaude API（Anthropic）に送信**される。機微な内容は `--no-summary` を使う。
+- 録音原本と文字起こしは `data/` に平文で残る。ディスク容量（Opus 32kbps で約14MB/時間、wav だと約115MB/時間）とバックアップ先の管理に注意。保持期間・自動削除は未決定のため自動削除しない。
+
 ## バックアップ
 `sqlite3 data/voice_memory.db ".backup backup.db"`（WAL稼働中でも安全）。`cp` のみは `-wal` を取りこぼすので避ける。
 
 ## ロードマップ
-- [ ] ReSpeaker Clip の録音取り込み
-- [ ] OpenAI API での文字起こし・要約・自動タグ付け
+- [ ] ReSpeaker Clip からの録音取得（BLE/Wi-Fi。下記「音声取り込み」は取得済みのローカルファイルが対象）
+- [x] ローカル音声の文字起こし（faster-whisper）・要約・タグ付け（Claude）。実音声での精度・速度は未検証
+- [ ] 自動取り込み（systemd 等）
 - [ ] FTS5 / ベクトル検索
 
 ## ライセンス
