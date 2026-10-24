@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 import pytest
 from voice_memory import database as db
 
@@ -117,3 +118,146 @@ def test_env_override(monkeypatch, tmp_path):
     monkeypatch.setenv("VOICE_MEMORY_DB", str(tmp_path / "x" / "e.db"))
     db.init_db()
     assert (tmp_path / "x" / "e.db").exists()
+
+
+# ---- FTS5 (trigram) -------------------------------------------------------
+
+def fts_rows(db_path):
+    with sqlite3.connect(db_path) as c:
+        return sorted(c.execute("SELECT memory_id, title, summary, transcript, tags FROM memories_fts"))
+
+
+def test_fts_long_term_substring(db_path):
+    save(db_path)
+    assert len(db.search_memories("Googleログイン", db_path=db_path)) == 1
+    assert len(db.search_memories("ログイン", db_path=db_path)) == 1  # 3 chars, mid-word
+    assert db.search_memories("googleログ", db_path=db_path)  # case-insensitive
+
+
+def test_search_two_char_term_uses_like(db_path):
+    save(db_path)
+    assert len(db.search_memories("認証", db_path=db_path)) == 1
+    assert db.search_memories("ログ", db_path=db_path)  # 2 chars, mid-word
+    assert db.search_memories("認", db_path=db_path)
+
+
+def test_search_and_mixed_terms(db_path):
+    save(db_path)
+    save(db_path, title="別件", transcript="Googleカレンダーの話", summary="", tags=[])
+    both = db.search_memories("Google 認証", db_path=db_path)
+    assert [x["title"] for x in both] == ["Firebase認証方式の検討"]
+    assert len(db.search_memories("Google", db_path=db_path)) == 2
+    assert db.search_memories("Google 牛乳", db_path=db_path) == []
+    assert db.search_memories("Firebase Google 認証", db_path=db_path)  # all long + short
+
+
+def test_search_short_term_wildcards_still_literal_with_long_term(db_path):
+    save(db_path)
+    assert db.search_memories("Google %", db_path=db_path) == []
+    save(db_path, title="割引", transcript="50% off セール", summary="", tags=[])
+    assert [x["title"] for x in db.search_memories("50% off", db_path=db_path)] == ["割引"]
+
+
+@pytest.mark.parametrize("q", ['"', 'a"b"c', "*", "NEAR(a b)", "AND", "OR NOT", "title:認証", "foo*", '"unterminated',
+                               "(((", "memory_id:x", "^abc", "-abc", "abc AND def"])
+def test_fts_syntax_chars_are_inert(db_path, q):
+    save(db_path)
+    assert db.search_memories(q, db_path=db_path) == []  # no exception, no match
+
+
+def test_fts_special_chars_match_literally(db_path):
+    save(db_path, title="記法", transcript='式は a AND b と "引用" と foo* を含む', summary="", tags=[])
+    for q, hit in [("foo*", True), ('"引用"', True), ("a AND b", True), ("NEAR", False), ("foo*bar", False)]:
+        assert bool(db.search_memories(q, db_path=db_path)) is hit, q
+
+
+def test_query_whitespace_only(db_path):
+    for q in ["", "   ", "\n\t"]:
+        with pytest.raises(db.ValidationError):
+            db.search_memories(q, db_path=db_path)
+
+
+def test_fts_tag_only_long_term(db_path):
+    save(db_path, transcript="本文", title="t", summary="", tags=["longtagname"])
+    assert len(db.search_memories("longtagname", db_path=db_path)) == 1
+
+
+def test_fts_matches_source_after_save(db_path):
+    a = save(db_path)
+    b = save(db_path, title="買い物", transcript="牛乳を買う", summary="", tags=["生活", "家"])
+    rows = fts_rows(db_path)
+    assert len(rows) == 2
+    by_id = {r[0]: r for r in rows}
+    assert by_id[b["id"]][1:] == ("買い物", "", "牛乳を買う", "生活 家")
+    assert by_id[a["id"]][4] == "firebase 認証"
+
+
+def test_save_with_conn_joins_transaction_rollback(db_path):
+    conn = db.connect(db_path)
+    with conn:
+        db.save_memory("t", "本文テキスト", conn=conn)
+    assert len(fts_rows(db_path)) == 1
+    try:
+        with conn:
+            db.save_memory("t2", "ロールバック対象", tags=["x"], conn=conn)
+            raise RuntimeError("boom")
+    except RuntimeError:
+        pass
+    conn.close()
+    assert len(fts_rows(db_path)) == 1
+    assert db.search_memories("ロールバック対象", db_path=db_path) == []
+    assert len(db.recent_memories(db_path=db_path)) == 1
+
+
+def test_save_own_connection_atomic(db_path, monkeypatch):
+    """If the FTS insert fails, the memory row must not be committed either."""
+    with sqlite3.connect(db_path) as c:
+        c.execute("DROP TABLE memories_fts")
+    with pytest.raises(sqlite3.OperationalError):
+        save(db_path)
+    assert db.recent_memories(db_path=db_path) == []
+
+
+def test_rebuild_fts_idempotent_and_matches(db_path):
+    save(db_path); save(db_path, title="買い物", transcript="牛乳を買う", summary="", tags=["生活"])
+    before = fts_rows(db_path)
+    with closing(db.connect(db_path)) as conn:
+        assert db.rebuild_fts(conn) == 2
+        assert db.rebuild_fts(conn) == 2
+    assert fts_rows(db_path) == before
+
+
+def test_rebuild_fts_failure_leaves_index_untouched(db_path, monkeypatch):
+    save(db_path)
+    before = fts_rows(db_path)
+    conn = db.connect(db_path)
+    real = db._fts_count
+    monkeypatch.setattr(db, "_fts_count", lambda c: (_ for _ in ()).throw(RuntimeError("boom")))
+    with pytest.raises(RuntimeError):
+        db.rebuild_fts(conn)
+    monkeypatch.setattr(db, "_fts_count", real)
+    conn.close()
+    assert fts_rows(db_path) == before
+
+
+def test_init_db_migrates_existing_db_without_fts(tmp_path):
+    p = tmp_path / "old.db"
+    db.init_db(p)
+    ids = [save(p, title=f"記録{i}", transcript=f"本文{i} 検索対象語", tags=["タグ"])["id"] for i in range(3)]
+    with sqlite3.connect(p) as c:
+        c.execute("DROP TABLE memories_fts")  # simulate a DB created before FTS
+    db.init_db(p)
+    assert len(fts_rows(p)) == 3
+    assert len(db.search_memories("検索対象語", db_path=p)) == 3
+    # source data untouched
+    assert {r["id"] for r in db.recent_memories(db_path=p)} == set(ids)
+    db.init_db(p)
+    assert len(fts_rows(p)) == 3  # no duplicates on re-run
+
+
+def test_init_db_heals_drift(db_path):
+    save(db_path)
+    with sqlite3.connect(db_path) as c:
+        c.execute("DELETE FROM memories_fts")
+    db.init_db(db_path)
+    assert len(fts_rows(db_path)) == 1

@@ -118,6 +118,7 @@ def process_file(
 
     with closing(db.connect(db_path)) as conn:
         conn.executescript(db.SCHEMA)
+        db.ensure_fts(conn)
         conn.executescript(SCHEMA)
         try:
             stored = _store_copy(src, sha, recordings)

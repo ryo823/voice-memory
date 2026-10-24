@@ -26,7 +26,7 @@ flowchart LR
 - **読み取り中心**: 削除・任意ファイル読み込みツールを持たない。書き込みは `save_voice_memory` のみ。
 - **SQLは全てプレースホルダー**、LIKEのワイルドカードはエスケープ。
 - **WAL + busy_timeout** で複数クライアントの同時アクセスに対応（4プロセス×50件の同時書き込みで検証）。
-- 検索は `database.py` に閉じており、FTS5・ベクトル検索への差し替えが容易。
+- 検索は `database.py` に閉じている。全文検索は SQLite FTS5（trigram）。ベクトル検索は未導入。
 
 ## デモ
 
@@ -81,7 +81,7 @@ python3 -m venv .venv
 
 | ツール | 内容 |
 |---|---|
-| `search_voice_memories(query, limit=10)` | タイトル/要約/本文/タグの部分一致検索（LIKE）。最大50件 |
+| `search_voice_memories(query, limit=10)` | タイトル/要約/本文/タグの部分一致検索。空白区切りはAND、3文字以上はFTS5(trigram)、2文字以下はLIKE。新しい順、最大50件 |
 | `get_voice_memory(memory_id)` | UUID指定で詳細取得 |
 | `get_recent_memories(limit=10)` | 新しい順。最大50件 |
 | `list_voice_tags()` | タグと使用件数 |
@@ -123,7 +123,8 @@ claude mcp add voice-memory -s user -- <path-to>/voice-memory/.venv/bin/voice-me
 - `database is locked`: WAL + busy_timeout 10秒で通常は発生しない。長時間トランザクションを持つプロセスが無いか確認。
 - `no such table`: `.venv/bin/voice-memory-init` を実行（MCP起動時にも自動実行される）。
 - SSH経由で応答がない: `ssh -T <host> true` が無出力で成功するか確認。
-- 検索が部分一致のみ: 仕様。形態素解析/FTS5/ベクトル検索は将来 `database.py` の `search_memories` を差し替えて追加する。
+- 検索は部分一致のみ（関連度順・形態素解析・ベクトル検索なし）: 仕様。複数語は全てを含む記録に絞るAND。
+- 検索漏れが疑わしい: FTS索引は `voice-memory-init`（`init_db`）が元データと件数を比べ、ずれていれば自動で再構築する。元データ（memories/tags）は変更しない。
 
 ## 音声取り込み（`voice-memory-ingest`）
 

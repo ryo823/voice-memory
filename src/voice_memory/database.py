@@ -46,7 +46,13 @@ CREATE TABLE IF NOT EXISTS memory_tags (
     PRIMARY KEY (memory_id, tag_id)
 );
 CREATE INDEX IF NOT EXISTS idx_memory_tags_tag ON memory_tags(tag_id);
+CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+    memory_id UNINDEXED, title, summary, transcript, tags, tokenize = 'trigram'
+);
 """
+
+# trigram FTS cannot match terms shorter than this many characters; those use LIKE.
+FTS_MIN_TERM = 3
 
 
 class ValidationError(ValueError):
@@ -81,6 +87,44 @@ def init_db(db_path: Path | str | None = None) -> None:
     with closing(connect(db_path)) as conn:
         conn.executescript(SCHEMA)
         conn.commit()
+        ensure_fts(conn)
+
+
+def ensure_fts(conn: sqlite3.Connection) -> None:
+    """Index records of an existing DB that gained the FTS table (also heals count drift)."""
+    if _fts_count(conn) != _memories_count(conn):
+        rebuild_fts(conn)
+
+
+def _memories_count(conn: sqlite3.Connection) -> int:
+    return conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+
+
+def _fts_count(conn: sqlite3.Connection) -> int:
+    return conn.execute("SELECT COUNT(*) FROM memories_fts").fetchone()[0]
+
+
+def rebuild_fts(conn: sqlite3.Connection) -> int:
+    """Rebuild the whole FTS index from memories + tags. Idempotent and all-or-nothing.
+
+    Returns the number of indexed memories. Never touches the source tables.
+    """
+    conn.commit()  # no open transaction may be pending
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute("DELETE FROM memories_fts")
+        conn.execute(
+            "INSERT INTO memories_fts (memory_id, title, summary, transcript, tags) "
+            "SELECT m.id, m.title, m.summary, m.transcript, COALESCE((SELECT group_concat(t.name, ' ') "
+            "FROM memory_tags mt JOIN tags t ON t.id = mt.tag_id WHERE mt.memory_id = m.id), '') "
+            "FROM memories m"
+        )
+        n = _fts_count(conn)
+        conn.commit()
+        return n
+    except BaseException:
+        conn.rollback()
+        raise
 
 
 def _now() -> str:
@@ -126,7 +170,9 @@ def _like_escape(s: str) -> str:
     return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _snippet(text: str, keyword: str | None = None) -> str:
+def _snippet(text: str, keyword: str | list[str] | None = None) -> str:
+    if isinstance(keyword, list):
+        keyword = next((k for k in keyword if k.lower() in text.lower()), None)
     if not keyword:
         return text[:SNIPPET_LEN] + ("…" if len(text) > SNIPPET_LEN else "")
     idx = text.lower().find(keyword.lower())
@@ -214,6 +260,11 @@ def save_memory(
                 "SELECT ?, id FROM tags WHERE name = ?",
                 (memory_id, name),
             )
+        # Same transaction as the rows above; this is the only write path, so keep them in step.
+        c.execute(
+            "INSERT INTO memories_fts (memory_id, title, summary, transcript, tags) VALUES (?,?,?,?,?)",
+            (memory_id, title, summary, transcript, " ".join(tag_list)),
+        )
 
     if conn is not None:
         insert(conn)
@@ -224,21 +275,39 @@ def save_memory(
     return {"id": memory_id, "recorded_at": recorded_at, "title": title, "tags": tag_list}
 
 
+def _fts_term(term: str) -> str:
+    """Quote one term as an FTS5 string so operators/wildcards in it are literal."""
+    return '"' + term.replace('"', '""') + '"'
+
+
 def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None) -> list[dict]:
+    """AND search over whitespace-separated terms in title, summary, transcript and tags.
+
+    Terms of FTS_MIN_TERM+ characters use the trigram FTS index; shorter ones fall back
+    to a literal LIKE. Newest first.
+    """
     query = _clean(query, "query", MAX_QUERY, True)
     limit = _clean_limit(limit)
-    pat = f"%{_like_escape(query)}%"
-    sql = """
-        SELECT m.* FROM memories m
-        WHERE m.title LIKE ?1 ESCAPE '\\' OR m.summary LIKE ?1 ESCAPE '\\'
-           OR m.transcript LIKE ?1 ESCAPE '\\'
-           OR EXISTS (SELECT 1 FROM memory_tags mt JOIN tags t ON t.id = mt.tag_id
-                      WHERE mt.memory_id = m.id AND t.name LIKE ?1 ESCAPE '\\')
-        ORDER BY m.recorded_at DESC LIMIT ?2
-    """
+    terms = list(dict.fromkeys(query.split()))
+    long_terms = [t for t in terms if len(t) >= FTS_MIN_TERM]
+    short_terms = [t for t in terms if len(t) < FTS_MIN_TERM]
+
+    where: list[str] = []
+    params: list = []
+    if long_terms:
+        where.append("m.id IN (SELECT memory_id FROM memories_fts WHERE memories_fts MATCH ?)")
+        params.append(" AND ".join(_fts_term(t) for t in long_terms))
+    for t in short_terms:
+        where.append(
+            "(m.title LIKE ? ESCAPE '\\' OR m.summary LIKE ? ESCAPE '\\' OR m.transcript LIKE ? ESCAPE '\\' "
+            "OR EXISTS (SELECT 1 FROM memory_tags mt JOIN tags t ON t.id = mt.tag_id "
+            "WHERE mt.memory_id = m.id AND t.name LIKE ? ESCAPE '\\'))"
+        )
+        params += [f"%{_like_escape(t)}%"] * 4
+    sql = f"SELECT m.* FROM memories m WHERE {' AND '.join(where)} ORDER BY m.recorded_at DESC LIMIT ?"
     with closing(connect(db_path)) as conn:
-        rows = conn.execute(sql, (pat, limit)).fetchall()
-        return _summarize(conn, rows, query)
+        rows = conn.execute(sql, (*params, limit)).fetchall()
+        return _summarize(conn, rows, terms)
 
 
 def get_memory(memory_id: str, db_path=None) -> dict:

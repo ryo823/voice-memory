@@ -33,7 +33,10 @@ WRITE = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHin
 
 @mcp.tool(annotations=READ)
 def search_voice_memories(query: str, limit: int = db.DEFAULT_LIMIT) -> dict:
-    """Keyword search (substring match) over title, summary, transcript and tags.
+    """Keyword search over title, summary, transcript and tags.
+
+    Whitespace-separated words are ANDed; each is a case-insensitive substring match
+    (Japanese works without spaces). Operators like AND/OR/* are plain text, not syntax.
 
     Returns id, recorded_at, title, summary, transcript excerpt and tags, newest first.
     limit is capped at 50.
