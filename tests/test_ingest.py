@@ -1,3 +1,4 @@
+import os
 import json
 import math
 import sqlite3
@@ -348,3 +349,33 @@ def test_clip_sync_failed_fetch_still_resumes_recording(tmp_path):
     r = clip_sync.sync(clip, state, lambda p: {}, Path("clip_wifi_sync.sh"))
     assert r["failed"] == ["20261024115101"] and r["resumed"] is True
     assert state["20261024115101"]["status"] == "failed"
+
+
+def test_inbox_ingests_once_and_caps_retries(tmp_path):
+    from voice_memory.ingest import inbox
+    box = tmp_path / "inbox"; (box / "sub").mkdir(parents=True)
+    ok, bad = box / "sub" / "a.m4a", box / "b.wav"
+    ok.write_bytes(b"x"); bad.write_bytes(b"y")
+    (box / ".tmp.m4a").write_bytes(b"z"); (box / "note.txt").write_text("n")
+    fresh = box / "new.m4a"; fresh.write_bytes(b"w")
+    now = fresh.stat().st_mtime + 10  # `fresh` is still settling; the others are not
+    old = now - 1000
+    for p in (ok, bad, box / ".tmp.m4a"):
+        os.utime(p, (old, old))
+    calls = []
+
+    def ingest(p):
+        calls.append(p.name)
+        if p.name == "b.wav":
+            raise IngestError("boom")
+        return {"status": "done", "memory_id": 1}
+
+    state = {}
+    r = inbox.run(box, state, ingest, now)
+    assert r == {"done": ["sub/a.m4a"], "skipped": 0, "failed": ["b.wav"]}
+    for _ in range(5):
+        inbox.run(box, state, ingest, now)
+    assert calls.count("a.m4a") == 1 and calls.count("b.wav") == inbox.MAX_ATTEMPTS
+    bad.write_bytes(b"yy"); os.utime(bad, (old, old))  # changed file gets a fresh budget
+    inbox.run(box, state, ingest, now)
+    assert calls.count("b.wav") == inbox.MAX_ATTEMPTS + 1

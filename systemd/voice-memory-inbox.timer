@@ -1,0 +1,10 @@
+[Unit]
+Description=Check data/inbox for new audio every 5 minutes
+
+[Timer]
+OnBootSec=4min
+OnUnitInactiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

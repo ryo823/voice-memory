@@ -13,3 +13,5 @@ __pycache__/
 data/clip_sync_state.*
 client_secret_*.json
 data/notify_state.*
+data/inbox/
+data/inbox_state.*

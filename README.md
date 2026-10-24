@@ -183,6 +183,15 @@ Clip が Pi の BLE 圏内にいる間、新しいセッションを取得して
   `mkdir -p ~/.config/systemd/user && cp systemd/voice-memory-clip-sync.* ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now voice-memory-clip-sync.timer`
   ログアウト中も動かすには `loginctl enable-linger $USER` が別途必要。
 
+### iCloud のボイスメモから取り込む（`voice-memory-inbox`）
+
+MacがiCloudと同期したボイスメモ（.m4a）を、Mac→Pi の rsync で `data/inbox/voicememos/` に送り、Pi側が自動で ingest する。
+
+- **Mac**: `scripts/mac_push_voicememos.sh <user>@<pi-host>`（追加のみ・削除しない。ターミナルに「フルディスクアクセス」が必要）。定期実行は launchd/cron で。
+- **Pi**: `.venv/bin/voice-memory-inbox`（`--no-summary` 可）。`data/inbox/` 配下の音声を取り込む。SHA-256で重複スキップ、失敗は最大3回（ファイルサイズが変われば再試行）、60秒以内に更新されたファイルは待つ。状態は `data/inbox_state.json`。
+- 定期実行: `systemd/voice-memory-inbox.{service,timer}`（有効化は clip-sync と同じ手順）。
+- iCloudで「ダウンロード待ち」のメモはMac上に実体がなく送れない（先にMacで開く／ダウンロードする）。
+
 ### プライバシー・運用上の注意
 - 録音には他人の会話が含まれ得る。録音前に相手の同意を得ること（職場・店舗等のルールや法令も確認）。
 - 音声はPiから出ないが、**文字起こしテキストはClaude API（Anthropic）に送信**される。機微な内容は `--no-summary` を使う。

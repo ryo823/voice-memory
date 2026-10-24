@@ -1,0 +1,11 @@
+[Unit]
+Description=Ingest audio files dropped into data/inbox (iCloud Voice Memos from a Mac)
+OnFailure=voice-memory-notify@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/voice-memory
+ExecStart=%h/voice-memory/.venv/bin/voice-memory-inbox
+Nice=10
+TimeoutStartSec=2h
+SuccessExitStatus=1
