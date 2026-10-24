@@ -52,7 +52,7 @@ tools: ['search_voice_memories', 'get_voice_memory', 'get_recent_memories', 'lis
 ```
 
 音声由来のメモを SQLite に保存し、MCP (stdio) で Claude Code / Gemini CLI から検索・保存するための基盤。
-音声ファイルの取り込み（`voice-memory-ingest`）に対応。ReSpeaker Clip からの自動取得・常駐は未実装。
+音声ファイルの取り込み（`voice-memory-ingest`）、ReSpeaker Clip からの自動取得（`voice-memory-clip-sync`）、iCloud ボイスメモの取り込み（`voice-memory-inbox`）に対応。
 
 `<path-to>` はこのリポジトリを置いた絶対パス、`<user>@<host>` はSSH接続先に置き換える。
 
@@ -214,8 +214,9 @@ MacがiCloudと同期したボイスメモ（.m4a）を、Mac→Pi の rsync で
 
 ## ロードマップ
 - [x] ReSpeaker Clip からの録音取得（BLE で一覧 → Wi-Fi で取得。下記「reSpeaker Clip から取り込む」）
-- [x] ローカル音声の文字起こし（faster-whisper）・要約・タグ付け（Claude）。実測: 41分の音声を約26分（0.62x）、43秒の録音を約24秒（要約込み）
+- [x] ローカル音声の文字起こし（faster-whisper）・要約・タグ付け（Claude）。実測: 41分の音声を約26分（0.62x）、43秒の録音を約24秒（要約込み）、3.3分（VAD後は約1.2分分の発話）の音声を約4.8分（`--no-summary`）
 - [x] 自動取り込み（systemd ユーザーtimer。下記「自動取り込み」）
+- [x] iCloud ボイスメモの取り込み（Mac→Pi rsync、`voice-memory-inbox`。下記「iCloud のボイスメモから取り込む」）
 - [x] バックアップ（DBスナップショット＋録音の差分コピー、Google Drive へのコピー、復元確認。上記「バックアップ」、[Drive設定](docs/drive-backup-setup.md)）
 - [x] 失敗通知（Discord。上記「失敗通知」）
 - [x] 全文検索 FTS5（trigram。2文字以下はLIKE。実機DB検証は [docs/fts-verification.md](docs/fts-verification.md)）
