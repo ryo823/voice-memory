@@ -254,3 +254,10 @@ Claude Code で「最近のメモから予定候補を出して」と頼むと�
 
 ## ライセンス
 MIT（[LICENSE](LICENSE)）
+
+## スマホ閲覧（読み取り専用Webビューア）
+
+- `voice-memory-web`（`src/voice_memory/web.py`）が、メモの一覧・検索・タグ絞り込み・詳細（要約＋文字起こし）をスマホ向けHTMLで返す。DBは読むだけ。
+- Tailscale IP にのみバインドする（`0.0.0.0` は起動時に拒否）。認証はなく、同じ tailnet の端末だけが見られる前提。インターネットには公開しない。
+- 配置（Pi）: `cp systemd/voice-memory-web.service ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now voice-memory-web.service`
+- 閲覧: iPhone で Tailscale を ON にして `http://100.112.15.37:8765`（Pi の Tailscale IP が変わったらユニットの `VOICE_MEMORY_WEB_HOST` を直す）。

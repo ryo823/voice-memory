@@ -357,6 +357,20 @@ def recent_memories(limit: int = DEFAULT_LIMIT, db_path=None) -> list[dict]:
         return _summarize(conn, rows)
 
 
+def memories_by_tag(tag: str, limit: int = DEFAULT_LIMIT, db_path=None) -> list[dict]:
+    """Memories carrying exactly this tag, newest first."""
+    tag = _clean(tag, "tag", MAX_TAG_LEN, True)
+    limit = _clean_limit(limit)
+    with closing(connect(db_path)) as conn:
+        rows = conn.execute(
+            "SELECT m.* FROM memories m WHERE m.id IN (SELECT mt.memory_id FROM memory_tags mt "
+            "JOIN tags t ON t.id = mt.tag_id WHERE t.name = ?) "
+            "ORDER BY m.recorded_at DESC, m.created_at DESC LIMIT ?",
+            (tag, limit),
+        ).fetchall()
+        return _summarize(conn, rows)
+
+
 def pending_memories(days: int = DEFAULT_PENDING_DAYS, limit: int = DEFAULT_LIMIT, db_path=None,
                      exclude_suggested: bool = False) -> list[dict]:
     """Memories recorded in the last `days` days that have no registrations row yet, newest first.

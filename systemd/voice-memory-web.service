@@ -1,0 +1,15 @@
+[Unit]
+Description=Voice Memory read-only mobile viewer (Tailscale only)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=%h/voice-memory
+Environment=VOICE_MEMORY_WEB_HOST=100.112.15.37
+Environment=VOICE_MEMORY_WEB_PORT=8765
+ExecStart=%h/voice-memory/.venv/bin/voice-memory-web
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
