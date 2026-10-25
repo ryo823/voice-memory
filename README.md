@@ -210,7 +210,7 @@ MacがiCloudと同期したボイスメモ（.m4a）を、Mac→Pi の rsync で
 
 ## 予定・TODOの提案（フェーズ1）
 
-Claude Code で「最近のメモから予定候補を出して」と頼むと、`get_pending_action_memories` で未確認のメモを取り、モデルが予定/TODOを抽出して提案する。承認した予定は claude.ai の Google Calendar コネクタで作成し（説明欄にはメモIDと要約のみ。本文は入れない）、作成後に `record_action_registration` で記録する。何も登録しなかったメモは kind=`none` で記録する。Google Tasks と Gemini CLI 対応（自前のOAuth）はフェーズ2。
+Claude Code で「最近のメモから予定候補を出して」と頼むと、`get_pending_action_memories` で未確認のメモを取り、モデルが予定/TODOを抽出して提案する。承認した予定は claude.ai の Google Calendar コネクタで作成し（説明欄にはメモIDと要約のみ。本文は入れない）、作成後に `record_action_registration` で記録する。何も登録しなかったメモは kind=`none` で記録する。抽出ルールは `.claude/skills/suggest-actions/` のスキルにまとめてある（Claude Code でのみ有効）。Google Tasks と Gemini CLI 対応（自前のOAuth）はフェーズ2で、フェーズ1を数日使ってから要否を判断する。
 
 ## 失敗通知（Discord）
 バックアップと clip-sync の失敗、Clip が12時間以上 BLE で応答しない状態を Discord に通知する（`voice-memory-notify`）。通知は短い状態行のみで、文字起こし・要約・エラー詳細は送らない。同じ失敗は6時間に1回まで、復旧時に1回通知する。
