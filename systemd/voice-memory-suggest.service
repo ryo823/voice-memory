@@ -1,0 +1,10 @@
+[Unit]
+Description=Mail Calendar/TODO candidates from unreviewed voice memos (proposal only)
+OnFailure=voice-memory-notify@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/voice-memory
+ExecStart=%h/voice-memory/scripts/suggest_actions_scheduled.sh
+Nice=15
+TimeoutStartSec=15min

@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly voice-memory action suggestions (matches the 7-day pending window)
+
+[Timer]
+OnCalendar=Sun *-*-* 20:00:00
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
