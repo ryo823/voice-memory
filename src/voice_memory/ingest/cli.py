@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("file", type=Path)
     ap.add_argument("--no-summary", action="store_true",
                     help="skip Claude: store transcript only (no ANTHROPIC_API_KEY needed)")
-    ap.add_argument("--whisper-model", help="faster-whisper model (default: env VOICE_MEMORY_WHISPER_MODEL or small)")
+    ap.add_argument("--whisper-model", help="faster-whisper model (default: env VOICE_MEMORY_WHISPER_MODEL or large-v3-turbo)")
     ap.add_argument("--claude-model", help="default: env VOICE_MEMORY_CLAUDE_MODEL or " + config.DEFAULT_CLAUDE_MODEL)
     ap.add_argument("--beam-size", type=int, default=1)
     args = ap.parse_args(argv)

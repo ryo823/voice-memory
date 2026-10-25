@@ -137,7 +137,7 @@ claude mcp add voice-memory -s user -- <path-to>/voice-memory/.venv/bin/voice-me
 .venv/bin/voice-memory-ingest /path/to/recording.wav --no-summary   # 文字起こしのみ（APIキー不要）
 ```
 
-- 文字起こし: Pi上で `faster-whisper`（CPU, int8, 日本語）。音声は外部に送信されない。モデルは初回に自動ダウンロード（`small` で約0.5GB, `~/.cache/huggingface`）。`VOICE_MEMORY_WHISPER_MODEL` で変更可。
+- 文字起こし: Pi上で `faster-whisper`（CPU, int8, 日本語）。音声は外部に送信されない。既定モデルは `large-v3-turbo`（初回に約1.6GBを自動ダウンロード, `~/.cache/huggingface`）。音声の約1.3倍の時間がかかる。精度ベンチでは `small` より診察券・保険金請求・身分証などの誤変換が大幅に減った（`scripts/bench_whisper.py`）。`VOICE_MEMORY_WHISPER_MODEL` で変更可。
 - 要約・タグ: Claude API（既定 `claude-haiku-5-5`, `VOICE_MEMORY_CLAUDE_MODEL` で変更可）。**文字起こしテキストがAnthropicへ送信される。**
 - APIキー: `ANTHROPIC_API_KEY` を環境変数、または `chmod 600 .env`（Git管理外）に `ANTHROPIC_API_KEY=...` と書く。ログには出力しない。
 - 形式: PyAV で読めるもの（wav/mp3/m4a/ogg 等）。空・破損・非対応ファイルはDB登録前に拒否。ClipのRaw Opus（`.opus`）は読めないため、取得時にSDKが作る `.ogg` を使う（下記）。

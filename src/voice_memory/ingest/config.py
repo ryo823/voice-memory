@@ -13,7 +13,7 @@ from ..database import PROJECT_ROOT
 
 log = logging.getLogger("voice_memory.ingest")
 
-DEFAULT_WHISPER_MODEL = "small"
+DEFAULT_WHISPER_MODEL = "large-v3-turbo"
 DEFAULT_CLAUDE_MODEL = "claude-haiku-5-5"
 
 
