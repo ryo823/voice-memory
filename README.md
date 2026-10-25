@@ -187,7 +187,7 @@ Clip が Pi の BLE 圏内にいる間、新しいセッションを取得して
 
 ### iCloud のボイスメモから取り込む（`voice-memory-inbox`）
 
-MacがiCloudと同期したボイスメモ（.m4a）を、Mac→Pi の rsync で `data/inbox/voicememos/` に送り、Pi側が自動で ingest する。
+MacがiCloudと同期したボイスメモ（.m4a と、新しい形式の .qta）を、Mac→Pi の rsync で `data/inbox/voicememos/` に送り、Pi側が自動で ingest する。
 
 - **Mac**: `scripts/mac_push_voicememos.sh <user>@<pi-host>`（追加のみ・削除しない。ターミナルに「フルディスクアクセス」が必要）。定期実行は launchd/cron で。
 - **Pi**: `.venv/bin/voice-memory-inbox`（`--no-summary` 可）。`data/inbox/` 配下の音声を取り込む。SHA-256で重複スキップ、失敗は最大3回（ファイルサイズが変われば再試行）、60秒以内に更新されたファイルは待つ。状態は `data/inbox_state.json`。
@@ -212,14 +212,15 @@ MacがiCloudと同期したボイスメモ（.m4a）を、Mac→Pi の rsync で
 
 Claude Code で「最近のメモから予定候補を出して」と頼むと、`get_pending_action_memories` で未確認のメモを取り、モデルが予定/TODOを抽出して提案する。承認した予定は claude.ai の Google Calendar コネクタで作成し（説明欄にはメモIDと要約のみ。本文は入れない）、作成後に `record_action_registration` で記録する。何も登録しなかったメモは kind=`none` で記録する。抽出ルールは `.claude/skills/suggest-actions/` のスキルにまとめてある（Claude Code でのみ有効）。Google Tasks と Gemini CLI 対応（自前のOAuth）はフェーズ2で、フェーズ1を数日使ってから要否を判断する。
 
-## 予定候補の週次メール（Muse 用）
-`voice-memory-suggest.timer`（毎週日曜20:00）が `scripts/suggest_actions_scheduled.sh` を実行し、未確認メモの要約と録音日を自分宛てにメールする。メールを Meta Muse に貼って予定/TODOを提案させる想定。提案専用モードなので Calendar へは書かず、記録（`record_action_registration`）もしない。許可ツールはメモ取得2つと Gmail `send_message` のみ。健康・医療、金銭・認証情報、第三者の個人情報が中心のメモは除外し、件数だけ載せる。登録は通常モードの `/suggest-actions` で承認して行う。
-- 動作確認: `scripts/suggest_actions_scheduled.sh --dry-run`（メールは送らず標準出力）
+## 予定候補の日次メール（Muse 用）
+`voice-memory-suggest.timer`（毎日6:30頃）が `voice-memory-suggest` を実行し、まだメールしていない未確認メモの要約と録音日を自分宛てにメールする。メールを Meta Muse に貼って予定/TODOを提案させる想定。提案専用モードなので Calendar へは書かず、`record_action_registration` も呼ばない。許可ツールはメモ取得2つと Gmail `send_message` のみ。健康・医療、金銭・認証情報、第三者の個人情報が中心のメモは除外し、件数だけ載せる。登録は通常モードの `/suggest-actions` で承認して行う。
+- 「メール済み」は `suggestions` テーブルに記録する（`registrations` とは別。メモは `/suggest-actions` の対象には残る）。記録は Claude ではなくスクリプトが、メール送信の成功を確認してから、Claude が実際に取得したメモIDだけに付ける。失敗した日は何も記録せず、翌日にやり直す。
+- 新しいメモが無い日は Claude を呼ばず、メールも送らない。直近7日より古い未送信メモは対象外。
+- 動作確認: `.venv/bin/voice-memory-suggest --dry-run`（メールは送らず標準出力。記録もしない）
 - 配置: `cp systemd/voice-memory-suggest.* ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now voice-memory-suggest.timer`
-- 記録しないので、7日以内のメモは再実行で重複して載る。週1回の実行はそのため。
 
 ## 失敗通知（Discord）
-バックアップ・clip-sync・inbox・suggest（週次の予定候補メール）の失敗、Clip が12時間以上 BLE で応答しない状態を Discord に通知する（`voice-memory-notify`）。通知は短い状態行のみで、文字起こし・要約・エラー詳細は送らない。同じ失敗は6時間に1回まで、復旧時に1回通知する。
+バックアップ・clip-sync・inbox・suggest（日次の予定候補メール）の失敗、Clip が12時間以上 BLE で応答しない状態を Discord に通知する（`voice-memory-notify`）。通知は短い状態行のみで、文字起こし・要約・エラー詳細は送らない。同じ失敗は6時間に1回まで、復旧時に1回通知する。
 - Discord のチャンネル設定 → 連携サービス → ウェブフック で URL を作り、`.env` に `VOICE_MEMORY_DISCORD_WEBHOOK=...` を追記（`chmod 600`。URLは秘密情報で、ログには出さない）。
 - 動作確認: `voice-memory-notify --test`
 - クラッシュ（例外終了）も拾うため、`systemd/voice-memory-notify@.service` と各サービスの `OnFailure=` をユーザーユニットとして配置する（`cp systemd/* ~/.config/systemd/user/ && systemctl --user daemon-reload`）。

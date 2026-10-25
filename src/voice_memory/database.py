@@ -59,6 +59,12 @@ CREATE TABLE IF NOT EXISTS registrations (
     created_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_registrations_memory ON registrations(memory_id);
+-- A memory with a row here was already mailed as a candidate (proposal-only run), so the daily run skips it.
+-- Separate from registrations: the memory stays "pending" for the interactive /suggest-actions review.
+CREATE TABLE IF NOT EXISTS suggestions (
+    memory_id    TEXT PRIMARY KEY REFERENCES memories(id) ON DELETE CASCADE,
+    suggested_at TEXT NOT NULL
+);
 -- Keyed by memory_id, not memories.rowid: memories has a TEXT primary key, so VACUUM may renumber rowids.
 CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
     memory_id UNINDEXED, title, summary, transcript, tags, tokenize = 'trigram'
@@ -351,8 +357,11 @@ def recent_memories(limit: int = DEFAULT_LIMIT, db_path=None) -> list[dict]:
         return _summarize(conn, rows)
 
 
-def pending_memories(days: int = DEFAULT_PENDING_DAYS, limit: int = DEFAULT_LIMIT, db_path=None) -> list[dict]:
-    """Memories recorded in the last `days` days that have no registrations row yet, newest first."""
+def pending_memories(days: int = DEFAULT_PENDING_DAYS, limit: int = DEFAULT_LIMIT, db_path=None,
+                     exclude_suggested: bool = False) -> list[dict]:
+    """Memories recorded in the last `days` days that have no registrations row yet, newest first.
+
+    With exclude_suggested, memories already mailed by the proposal-only run are left out too."""
     if isinstance(days, bool) or not isinstance(days, int) or days < 1:
         raise ValidationError("days must be a positive integer")
     days = min(days, MAX_PENDING_DAYS)
@@ -362,7 +371,8 @@ def pending_memories(days: int = DEFAULT_PENDING_DAYS, limit: int = DEFAULT_LIMI
         rows = conn.execute(
             "SELECT m.* FROM memories m WHERE julianday(m.recorded_at) >= julianday(?) "
             "AND NOT EXISTS (SELECT 1 FROM registrations r WHERE r.memory_id = m.id) "
-            "ORDER BY m.recorded_at DESC, m.created_at DESC LIMIT ?",
+            + ("AND NOT EXISTS (SELECT 1 FROM suggestions s WHERE s.memory_id = m.id) " if exclude_suggested else "")
+            + "ORDER BY m.recorded_at DESC, m.created_at DESC LIMIT ?",
             (cutoff, limit),
         ).fetchall()
         return _summarize(conn, rows)
@@ -386,6 +396,20 @@ def record_registration(memory_id: str, kind: str, external_id: str | None = Non
                 (memory_id, kind, external_id, _now()),
             )
     return {"memory_id": memory_id, "kind": kind, "external_id": external_id}
+
+
+def mark_suggested(memory_ids: list[str], db_path=None) -> int:
+    """Record that these memories were mailed as candidates. Unknown ids and repeats are ignored."""
+    now = _now()
+    with closing(connect(db_path)) as conn:
+        with conn:
+            before = conn.total_changes
+            conn.executemany(
+                "INSERT OR IGNORE INTO suggestions (memory_id, suggested_at) "
+                "SELECT id, ? FROM memories WHERE id = ?",
+                [(now, i) for i in memory_ids],
+            )
+            return conn.total_changes - before
 
 
 def list_tags(db_path=None) -> list[dict]:

@@ -5,6 +5,6 @@ OnFailure=voice-memory-notify@%n.service
 [Service]
 Type=oneshot
 WorkingDirectory=%h/voice-memory
-ExecStart=%h/voice-memory/scripts/suggest_actions_scheduled.sh
+ExecStart=%h/voice-memory/.venv/bin/voice-memory-suggest
 Nice=15
 TimeoutStartSec=15min

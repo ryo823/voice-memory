@@ -59,14 +59,16 @@ def get_recent_memories(limit: int = db.DEFAULT_LIMIT) -> dict:
 
 
 @mcp.tool(annotations=READ)
-def get_pending_action_memories(days: int = db.DEFAULT_PENDING_DAYS, limit: int = db.DEFAULT_LIMIT) -> dict:
+def get_pending_action_memories(days: int = db.DEFAULT_PENDING_DAYS, limit: int = db.DEFAULT_LIMIT,
+                                exclude_suggested: bool = False) -> dict:
     """List recent memories not yet reviewed for calendar events / TODOs (newest first).
 
     Covers the last `days` days (default 7); memories already recorded with record_action_registration
     are left out. Use get_voice_memory for a memory's full transcript. recorded_at is the base for
     resolving relative dates like "next Tuesday" (timezone Asia/Tokyo). limit is capped at 50.
+    exclude_suggested=true also leaves out memories already mailed by the scheduled proposal run.
     """
-    results = db.pending_memories(days, limit)
+    results = db.pending_memories(days, limit, exclude_suggested=exclude_suggested)
     return {"notice": NOTICE, "count": len(results), "results": results}
 
 

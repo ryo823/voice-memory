@@ -20,6 +20,7 @@ voice-memory-clip-sync = "voice_memory.ingest.clip_sync:main"
 voice-memory-inbox = "voice_memory.ingest.inbox:main"
 voice-memory-backup = "voice_memory.backup:main"
 voice-memory-notify = "voice_memory.notify:main"
+voice-memory-suggest = "voice_memory.suggest:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

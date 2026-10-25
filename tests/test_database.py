@@ -330,3 +330,12 @@ def test_registrations_cascade(db_path):
     with closing(db.connect(db_path)) as c:
         c.execute("DELETE FROM memories WHERE id = ?", (m["id"],)); c.commit()
         assert c.execute("SELECT COUNT(*) FROM registrations").fetchone()[0] == 0
+
+
+def test_mark_suggested_hides_from_daily_run_only(db_path):
+    a = save(db_path, title="a", recorded_at=_days_ago(1))
+    b = save(db_path, title="b", recorded_at=_days_ago(1))
+    assert db.mark_suggested([a["id"], "nope"], db_path) == 1
+    assert db.mark_suggested([a["id"]], db_path) == 0
+    assert [m["id"] for m in db.pending_memories(db_path=db_path, exclude_suggested=True)] == [b["id"]]
+    assert len(db.pending_memories(db_path=db_path)) == 2

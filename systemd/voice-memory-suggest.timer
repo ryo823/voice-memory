@@ -1,8 +1,8 @@
 [Unit]
-Description=Weekly voice-memory action suggestions (matches the 7-day pending window)
+Description=Daily early-morning voice-memory action suggestions (memos not yet mailed)
 
 [Timer]
-OnCalendar=Sun *-*-* 20:00:00
+OnCalendar=*-*-* 06:30:00
 Persistent=true
 RandomizedDelaySec=5min
 
