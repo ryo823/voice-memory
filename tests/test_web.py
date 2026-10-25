@@ -49,3 +49,15 @@ def test_detail_escapes_html(base):
 def test_missing_and_unknown(base):
     assert get(base + "/m/nope")[0] == 404
     assert get(base + "/zzz")[0] == 404
+
+
+def test_pagination(db_path, monkeypatch):
+    monkeypatch.setattr(web, "PAGE_LIMIT", 2)
+    for i in range(5):
+        db.save_memory(f"m{i}", "t", recorded_at=f"2026-01-0{i + 1}T00:00:00+09:00", tags=["x"], db_path=db_path)
+    page = lambda off: web.render_index(offset=off, db_path=db_path).decode()
+    p0, p1, p2 = page(0), page(2), page(4)
+    assert "m4" in p0 and "m3" in p0 and "m2" not in p0 and "古い方へ" in p0 and "新しい方へ" not in p0
+    assert "m2" in p1 and "m1" in p1 and "古い方へ" in p1 and "新しい方へ" in p1
+    assert "m0" in p2 and "古い方へ" not in p2 and "新しい方へ" in p2
+    assert "offset=2" in web.render_index(tag="x", db_path=db_path).decode()

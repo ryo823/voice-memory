@@ -59,19 +59,36 @@ def _card(m: dict) -> str:
     )
 
 
-def render_index(query: str = "", tag: str = "", db_path=None) -> bytes:
+def _href(q: str, tag: str, offset: int) -> str:
+    params = [f"{k}={quote(v)}" for k, v in (("q", q), ("tag", tag)) if v]
+    if offset:
+        params.append(f"offset={offset}")
+    return "/?" + "&amp;".join(params) if params else "/"
+
+
+def render_index(query: str = "", tag: str = "", offset: int = 0, db_path=None) -> bytes:
+    # fetch one extra row to know whether a next page exists
+    n = PAGE_LIMIT + 1
     if query:
-        items = db.search_memories(query, PAGE_LIMIT, db_path=db_path)
+        items = db.search_memories(query, n, db_path=db_path, offset=offset)
     elif tag:
-        items = db.memories_by_tag(tag, PAGE_LIMIT, db_path=db_path)
+        items = db.memories_by_tag(tag, n, db_path=db_path, offset=offset)
     else:
-        items = db.recent_memories(PAGE_LIMIT, db_path=db_path)
+        items = db.recent_memories(n, db_path=db_path, offset=offset)
+    has_next = len(items) > PAGE_LIMIT
+    items = items[:PAGE_LIMIT]
     form = (
         f'<form action="/"><input type="search" name="q" value="{_e(query)}" placeholder="検索">'
         f"<button>検索</button></form>"
     )
     cards = "".join(_card(m) for m in items) or '<p class="empty">該当するメモはありません。</p>'
-    return _page("Voice Memory", form + _tag_chips(db.list_tags(db_path), tag) + cards)
+    links = []
+    if offset:
+        links.append(f'<a class="tag" href="{_href(query, tag, max(0, offset - PAGE_LIMIT))}">← 新しい方へ</a>')
+    if has_next:
+        links.append(f'<a class="tag" href="{_href(query, tag, offset + PAGE_LIMIT)}">古い方へ →</a>')
+    pager = f'<div class="tags">{"".join(links)}</div>' if links else ""
+    return _page("Voice Memory", form + _tag_chips(db.list_tags(db_path), tag) + cards + pager)
 
 
 def render_detail(memory_id: str, db_path=None) -> bytes:
@@ -102,8 +119,10 @@ def make_handler(db_path=None):
             qs = parse_qs(url.query)
             try:
                 if url.path == "/":
+                    raw = qs.get("offset", ["0"])[0]
+                    offset = int(raw) if raw.isdigit() else 0
                     self._send(200, render_index(
-                        qs.get("q", [""])[0].strip(), qs.get("tag", [""])[0].strip(), db_path))
+                        qs.get("q", [""])[0].strip(), qs.get("tag", [""])[0].strip(), offset, db_path))
                 elif url.path.startswith("/m/"):
                     self._send(200, render_detail(url.path[3:], db_path))
                 else:

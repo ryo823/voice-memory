@@ -193,6 +193,12 @@ def _clean_limit(limit: int) -> int:
     return min(limit, MAX_LIMIT)
 
 
+def _clean_offset(offset: int) -> int:
+    if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+        raise ValidationError("offset must be a non-negative integer")
+    return offset
+
+
 def _like_escape(s: str) -> str:
     return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
@@ -307,7 +313,7 @@ def _fts_term(term: str) -> str:
     return '"' + term.replace('"', '""') + '"'
 
 
-def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None) -> list[dict]:
+def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0) -> list[dict]:
     """AND search over whitespace-separated terms in title, summary, transcript and tags.
 
     Terms of FTS_MIN_TERM+ characters use the trigram FTS index; shorter ones fall back
@@ -315,6 +321,7 @@ def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None) -> lis
     """
     query = _clean(query, "query", MAX_QUERY, True)
     limit = _clean_limit(limit)
+    offset = _clean_offset(offset)
     terms = list(dict.fromkeys(query.split()))
     long_terms = [t for t in terms if len(t) >= FTS_MIN_TERM]
     short_terms = [t for t in terms if len(t) < FTS_MIN_TERM]
@@ -331,9 +338,9 @@ def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None) -> lis
             "WHERE mt.memory_id = m.id AND t.name LIKE ? ESCAPE '\\'))"
         )
         params += [f"%{_like_escape(t)}%"] * 4
-    sql = f"SELECT m.* FROM memories m WHERE {' AND '.join(where)} ORDER BY m.recorded_at DESC LIMIT ?"
+    sql = f"SELECT m.* FROM memories m WHERE {' AND '.join(where)} ORDER BY m.recorded_at DESC, m.created_at DESC LIMIT ? OFFSET ?"
     with closing(connect(db_path)) as conn:
-        rows = conn.execute(sql, (*params, limit)).fetchall()
+        rows = conn.execute(sql, (*params, limit, offset)).fetchall()
         return _summarize(conn, rows, terms)
 
 
@@ -348,25 +355,27 @@ def get_memory(memory_id: str, db_path=None) -> dict:
         return d
 
 
-def recent_memories(limit: int = DEFAULT_LIMIT, db_path=None) -> list[dict]:
+def recent_memories(limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0) -> list[dict]:
     limit = _clean_limit(limit)
+    offset = _clean_offset(offset)
     with closing(connect(db_path)) as conn:
         rows = conn.execute(
-            "SELECT * FROM memories ORDER BY recorded_at DESC, created_at DESC LIMIT ?", (limit,)
+            "SELECT * FROM memories ORDER BY recorded_at DESC, created_at DESC LIMIT ? OFFSET ?", (limit, offset)
         ).fetchall()
         return _summarize(conn, rows)
 
 
-def memories_by_tag(tag: str, limit: int = DEFAULT_LIMIT, db_path=None) -> list[dict]:
+def memories_by_tag(tag: str, limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0) -> list[dict]:
     """Memories carrying exactly this tag, newest first."""
     tag = _clean(tag, "tag", MAX_TAG_LEN, True)
     limit = _clean_limit(limit)
+    offset = _clean_offset(offset)
     with closing(connect(db_path)) as conn:
         rows = conn.execute(
             "SELECT m.* FROM memories m WHERE m.id IN (SELECT mt.memory_id FROM memory_tags mt "
             "JOIN tags t ON t.id = mt.tag_id WHERE t.name = ?) "
-            "ORDER BY m.recorded_at DESC, m.created_at DESC LIMIT ?",
-            (tag, limit),
+            "ORDER BY m.recorded_at DESC, m.created_at DESC LIMIT ? OFFSET ?",
+            (tag, limit, offset),
         ).fetchall()
         return _summarize(conn, rows)
 
