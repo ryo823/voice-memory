@@ -30,7 +30,7 @@ log = logging.getLogger("voice_memory.ingest")
 
 MAX_ATTEMPTS = 3
 SETTLE_SEC = 60  # ignore files modified more recently than this (still being copied)
-EXTS = {".m4a", ".mp3", ".wav", ".ogg", ".opus", ".aac", ".flac", ".caf"}
+EXTS = {".m4a", ".qta", ".mp3", ".wav", ".ogg", ".opus", ".aac", ".flac", ".caf"}
 
 
 def inbox_dir() -> Path:
