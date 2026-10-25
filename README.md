@@ -193,6 +193,22 @@ MacがiCloudと同期したボイスメモ（.m4a と、新しい形式の .qta�
 - **Pi**: `.venv/bin/voice-memory-inbox`（`--no-summary` 可）。`data/inbox/` 配下の音声を取り込む。SHA-256で重複スキップ、失敗は最大3回（ファイルサイズが変われば再試行）、60秒以内に更新されたファイルは待つ。状態は `data/inbox_state.json`。
 - 定期実行: `systemd/voice-memory-inbox.{service,timer}`（有効化は clip-sync と同じ手順）。
 - iCloudで「ダウンロード待ち」のメモはMac上に実体がなく送れない（先にMacで開く／ダウンロードする）。
+- 新しい録音は `.qta`（QuickTime AAC）で保存される。`.m4a` だけ見ていると新着に見えない。過去分の `.qta` は1件数十〜数百MBあり、初回の転送と取り込み（Whisperは音声長の約1.4倍）に時間がかかる。Macがスリープすると転送中の大ファイルは次回に最初から再送になる。
+
+**Mac側の定期実行（launchd, 15分間隔）** — 以下はすべて Mac で実行する（`<user>@<pi-host>` は Tailscale 経由で鍵認証済みのもの。`ssh -o BatchMode=yes <user>@<pi-host> true` が通ること）。
+
+```bash
+cd <Macのリポジトリ>
+mkdir -p ~/Library/LaunchAgents ~/Library/Logs
+sed -e "s#__REPO__#$PWD#" -e "s#__HOME__#$HOME#" -e "s#__PI_HOST__#<user>@<pi-host>#" \
+  launchd/com.voice-memory.push.plist > ~/Library/LaunchAgents/com.voice-memory.push.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.voice-memory.push.plist
+launchctl kickstart -k gui/$(id -u)/com.voice-memory.push   # 即時に1回実行
+cat ~/Library/Logs/voice-memory-push.log                    # 空なら成功
+```
+
+- システム設定 → プライバシーとセキュリティ → フルディスクアクセス に `/bin/bash` を追加する（無いと `Voice Memos folder not found` で失敗する）。
+- 停止: `launchctl bootout gui/$(id -u)/com.voice-memory.push`。スクリプトを更新したら `git pull` するだけでよい（plist は変更不要）。
 
 ### プライバシー・運用上の注意
 - 録音には他人の会話が含まれ得る。録音前に相手の同意を得ること（職場・店舗等のルールや法令も確認）。
