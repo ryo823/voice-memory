@@ -1,0 +1,14 @@
+[Unit]
+Description=Claude Code Remote Control server (voice-memory)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=%h/voice-memory
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/.local/bin/claude remote-control --name voice-memory-pi --spawn same-dir
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target
