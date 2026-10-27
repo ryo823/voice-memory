@@ -235,6 +235,16 @@ Claude Code で「最近のメモから予定候補を出して」と頼むと�
 - 動作確認: `.venv/bin/voice-memory-suggest --dry-run`（DB から組み立てた本文を標準出力。Claude は呼ばず、メールも送らず、記録もしない。健康等の除外は Claude が送信時に行うので、dry-run の本文には未適用）
 - 配置: `cp systemd/voice-memory-suggest.* ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now voice-memory-suggest.timer`
 
+## 採用済みTODOの管理
+ユーザーが**明示的に採用した**TODOだけを `todos` テーブルに保存する（Muse や Claude が提案しただけの候補は保存しない。`add_todo` のツール説明にもそう書いてある）。既存テーブルは変更せず、`todos` と `todo_memories`（元の記録との紐づけ。複数可・なしも可）を追加しただけ。起動時の `init_db` が `CREATE TABLE IF NOT EXISTS` で作るので、既存DBはそのまま使える。
+- MCPツール: `list_todos`（既定は open+in_progress。`overdue_only` あり）、`get_todo`、`add_todo`、`update_todo`、`set_todo_status`。専用CLIは無い。
+- ステータス: `open` / `in_progress` / `completed` / `cancelled`（取り消し）/ `dismissed`（対応不要）。`completed_at` は完了時に付き、再開すると消える。優先順位は `high/medium/low` か未設定。
+- 期限: `due_date`（YYYY-MM-DD）は具体的な日付をユーザーが決めたときだけ。曖昧な場合は空のまま、本人の言葉を `due_text` に入れる。推測で入れない。
+- 重複防止: タイトルを正規化（全角半角・大文字小文字・空白・記号を無視）したキーで、未完了（open/in_progress）のTODOは1つしか持てない（部分UNIQUE索引。同時実行でも1件）。同じタイトルを再登録すると新規作成せず、渡した記録IDを既存TODOに紐づけて `duplicate=true` で返す。元の記録が無いTODOでも同じ。完了・取り消し済みのものとは重複扱いにしない。
+- 記録を削除（Web画面）しても紐づけが消えるだけでTODOは残る。
+- 日次メールには、そのメモか関連記録に紐づくTODOが「採用済みの関連TODO」として載る（新しい候補と区別するため）。
+- バックアップは DB 全体のスナップショットなので新テーブルも含まれる。
+
 ## 失敗通知（Discord）
 バックアップ・clip-sync・inbox・suggest（日次の予定候補メール）の失敗、Clip が12時間以上 BLE で応答しない状態を Discord に通知する（`voice-memory-notify`）。通知は短い状態行のみで、文字起こし・要約・エラー詳細は送らない。同じ失敗は6時間に1回まで、復旧時に1回通知する。
 - Discord のチャンネル設定 → 連携サービス → ウェブフック で URL を作り、`.env` に `VOICE_MEMORY_DISCORD_WEBHOOK=...` を追記（`chmod 600`。URLは秘密情報で、ログには出さない）。

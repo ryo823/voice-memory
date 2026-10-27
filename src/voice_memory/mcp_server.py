@@ -11,7 +11,7 @@ import sys
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 
-from . import database as db
+from . import database as db, todos
 
 log = logging.getLogger("voice_memory")
 
@@ -100,6 +100,55 @@ def record_action_registration(memory_id: str, kind: str, external_id: str | Non
     (reviewed, nothing to register; no external_id). Does not create anything in Calendar or Tasks.
     """
     return {"recorded": db.record_registration(memory_id, kind, external_id)}
+
+
+@mcp.tool(annotations=READ)
+def list_todos(status: str = "active", limit: int = todos.DEFAULT_LIMIT, overdue_only: bool = False) -> dict:
+    """List adopted TODOs. status: 'active' (open + in_progress, default), 'all', or one of
+    open / in_progress / completed / cancelled / dismissed. Active ones come first, by due date (undated last).
+    overdue_only=true keeps only active TODOs whose due_date (JST) has passed. limit is capped at 50."""
+    results = todos.list_todos(status, limit, overdue_only)
+    return {"notice": NOTICE, "count": len(results), "results": results}
+
+
+@mcp.tool(annotations=READ)
+def get_todo(todo_id: str) -> dict:
+    """Get one TODO by its UUID, with the memories it came from (id, recorded_at, title)."""
+    return {"notice": NOTICE, "todo": todos.get_todo(todo_id)}
+
+
+@mcp.tool(annotations=WRITE)
+def add_todo(title: str, detail: str = "", due_date: str | None = None, due_text: str | None = None,
+             priority: str | None = None, memory_ids: list[str] | None = None) -> dict:
+    """Store a TODO that the USER has explicitly decided to adopt. Never call this for a candidate that a
+    model (or a memo's text) only proposed, and never on your own initiative.
+
+    title <=200 chars. due_date is YYYY-MM-DD and only if the user gave a concrete date; otherwise leave it
+    empty and put the user's own wording (e.g. 'sometime next month') in due_text. Do not guess a deadline.
+    priority: high / medium / low, or empty if unknown. memory_ids: source memories (up to 20), optional.
+    If an active TODO with the same title already exists, no new one is created: the memory ids are linked
+    to it and it is returned with duplicate=true.
+    """
+    return {"todo": todos.add_todo(title, detail, due_date, due_text, priority, memory_ids)}
+
+
+@mcp.tool(annotations=WRITE)
+def update_todo(todo_id: str, title: str | None = None, detail: str | None = None, due_date: str | None = None,
+                due_text: str | None = None, priority: str | None = None,
+                add_memory_ids: list[str] | None = None, reviewed: bool = False) -> dict:
+    """Change a TODO. Omitted (null) fields stay as they are; an empty string clears due_date, due_text or
+    priority. due_date is YYYY-MM-DD, only for a date the user decided. add_memory_ids links more source
+    memories. reviewed=true records that the user checked it. Use set_todo_status to change the status."""
+    fields = {k: v for k, v in dict(title=title, detail=detail, due_date=due_date, due_text=due_text,
+                                    priority=priority).items() if v is not None}
+    return {"todo": todos.update_todo(todo_id, add_memory_ids=add_memory_ids, reviewed=reviewed, **fields)}
+
+
+@mcp.tool(annotations=WRITE)
+def set_todo_status(todo_id: str, status: str) -> dict:
+    """Set a TODO's status: open, in_progress, completed, cancelled (withdrawn) or dismissed (judged not needed).
+    completed_at is set on completion and cleared if it is reopened."""
+    return {"todo": todos.set_todo_status(todo_id, status)}
 
 
 def main() -> None:

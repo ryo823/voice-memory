@@ -11,7 +11,7 @@ from contextlib import closing
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from . import database as db
+from . import database as db, todos
 
 JST = ZoneInfo("Asia/Tokyo")
 WEEKDAYS = "月火水木金土日"
@@ -22,6 +22,7 @@ FALLBACK_EXCERPT_CHARS = 150
 MAX_MENTION_ENTRIES = 5
 MENTION_CONTEXT = 20
 MAX_RELATED = 3
+MAX_TODOS = 5
 RELATED_DAYS = 365
 GENERIC_TAG_USES = 15      # a tag used by more memories than this says nothing about relatedness
 SPECIFIC_TAG_USES = 3      # one shared tag counts as related only if it is this rare
@@ -164,6 +165,14 @@ def memo_block(conn, memo: dict) -> str:
         for e in related:
             lines.append(f"    - {e['id']} ({format_recorded(e['recorded_at'])[:10]}) "
                          f"{_one_line(e['title'])} [共通タグ: {', '.join(e['tags'])}]")
+    linked = todos.todos_for_memories(conn, [memo["id"]] + [e["id"] for e in related])
+    if linked:
+        lines.append("  採用済みの関連TODO(登録済み。新しい候補とは別。このメモか上の関連記録に紐づく):")
+        for t in linked[:MAX_TODOS]:
+            due = t["due_date"] or ("未設定" if not t["due_text"] else "日付未確定")
+            if t["due_text"]:
+                due += f"(本人の表現「{_one_line(t['due_text'])}」)"
+            lines.append(f"    - {t['id']} [{t['status']}] {_one_line(t['title'])} / 期限: {due}")
     return "\n".join(lines)
 
 

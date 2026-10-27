@@ -65,6 +65,35 @@ CREATE TABLE IF NOT EXISTS suggestions (
     memory_id    TEXT PRIMARY KEY REFERENCES memories(id) ON DELETE CASCADE,
     suggested_at TEXT NOT NULL
 );
+-- TODOs the user has explicitly adopted (see todos.py). Candidates proposed by a model are never stored here.
+-- title_key is the normalized title; two active (open / in_progress) TODOs cannot share it.
+-- due_date is only set when the user gave a concrete date; a vague deadline stays in due_text, due_date NULL.
+CREATE TABLE IF NOT EXISTS todos (
+    id               TEXT PRIMARY KEY,
+    title            TEXT NOT NULL,
+    title_key        TEXT NOT NULL,
+    detail           TEXT NOT NULL DEFAULT '',
+    status           TEXT NOT NULL DEFAULT 'open'
+                     CHECK (status IN ('open', 'in_progress', 'completed', 'cancelled', 'dismissed')),
+    priority         TEXT CHECK (priority IS NULL OR priority IN ('high', 'medium', 'low')),
+    due_date         TEXT,
+    due_text         TEXT,
+    created_at       TEXT NOT NULL,
+    updated_at       TEXT NOT NULL,
+    completed_at     TEXT,
+    last_reviewed_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_todos_active_title
+    ON todos(title_key) WHERE status IN ('open', 'in_progress');
+CREATE INDEX IF NOT EXISTS idx_todos_status_due ON todos(status, due_date);
+-- Source memories of a TODO. Deleting a memory removes only the link, never the TODO.
+CREATE TABLE IF NOT EXISTS todo_memories (
+    todo_id   TEXT NOT NULL REFERENCES todos(id)    ON DELETE CASCADE,
+    memory_id TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+    added_at  TEXT NOT NULL,
+    PRIMARY KEY (todo_id, memory_id)
+);
+CREATE INDEX IF NOT EXISTS idx_todo_memories_memory ON todo_memories(memory_id);
 -- Keyed by memory_id, not memories.rowid: memories has a TEXT primary key, so VACUUM may renumber rowids.
 CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
     memory_id UNINDEXED, title, summary, transcript, tags, tokenize = 'trigram'
