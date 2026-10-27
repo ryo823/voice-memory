@@ -37,11 +37,11 @@ def runner(out, rc=0):
     return run
 
 
-def test_sent_marks_only_fetched_ids(db_path):
+def test_sent_marks_memos_in_body(db_path):
     a = save(db_path, recorded_at=_days_ago(1))
-    b = save(db_path, recorded_at=_days_ago(1))
-    assert suggest.run(runner=runner(stream([a["id"]])), db_path=db_path) == 1
-    assert [m["id"] for m in db.pending_memories(db_path=db_path, exclude_suggested=True)] == [b["id"]]
+    assert suggest.run(runner=runner(stream([])), db_path=db_path) == 1
+    assert db.pending_memories(db_path=db_path, exclude_suggested=True) == []
+    assert db.pending_memories(db_path=db_path)[0]["id"] == a["id"]  # still pending for /suggest-actions
 
 
 def test_no_new_memos_skips_claude(db_path):
@@ -63,10 +63,26 @@ def test_all_excluded_marks_without_mail(db_path):
     assert suggest.run(runner=runner(stream([a["id"]], send=None, result="x\nRESULT: none")), db_path=db_path) == 1
 
 
-def test_dry_run_and_nonzero_exit_mark_nothing(db_path, capsys):
+def test_dry_run_prints_db_body_without_calling_claude(db_path, capsys):
     a = save(db_path, recorded_at=_days_ago(1))
-    suggest.run(dry_run=True, runner=runner(stream([a["id"]], send=None, result="body")), db_path=db_path)
-    assert capsys.readouterr().out.strip() == "body"
+    r = runner(stream([a["id"]], send=None, result="x"))
+    assert suggest.run(dry_run=True, runner=r, db_path=db_path) == 0
+    assert a["id"] in capsys.readouterr().out
+    assert r.calls == []
+    assert len(db.pending_memories(db_path=db_path, exclude_suggested=True)) == 1
+
+
+def test_nonzero_exit_marks_nothing(db_path):
+    save(db_path, recorded_at=_days_ago(1))
     with pytest.raises(suggest.SuggestError):
         suggest.run(runner=runner("", rc=1), db_path=db_path)
     assert len(db.pending_memories(db_path=db_path, exclude_suggested=True)) == 1
+
+
+def test_prompt_carries_body_and_only_send_tool(db_path):
+    a = save(db_path, title="歯医者の予約", transcript="来週の火曜の15時に歯医者", recorded_at=_days_ago(1))
+    r = runner(stream([a["id"]]))
+    suggest.run(runner=r, db_path=db_path)
+    cmd = r.calls[0]
+    assert a["id"] in cmd[2] and "来週の火曜" in cmd[2]
+    assert cmd[cmd.index("--allowedTools") + 1] == "mcp__claude_ai_Gmail__send_message"
