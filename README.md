@@ -226,7 +226,7 @@ cat ~/Library/Logs/voice-memory-push.log                    # 空なら成功
 
 ## 予定・TODOの提案（フェーズ1）
 
-Claude Code で「最近のメモから予定候補を出して」と頼むと、`get_pending_action_memories` で未確認のメモを取り、モデルが予定/TODOを抽出して提案する。承認した予定は claude.ai の Google Calendar コネクタで作成し（説明欄にはメモIDと要約のみ。本文は入れない）、作成後に `record_action_registration` で記録する。何も登録しなかったメモは kind=`none` で記録する。抽出ルールは `.claude/skills/suggest-actions/` のスキルにまとめてある（Claude Code でのみ有効）。Google Tasks と Gemini CLI 対応（自前のOAuth）はフェーズ2で、フェーズ1を数日使ってから要否を判断する。
+Claude Code で「最近のメモから予定候補を出して」と頼むと、`get_pending_action_memories` で未確認のメモを取り、モデルが予定/TODOを抽出して提案する。承認した予定は claude.ai の Google Calendar コネクタで作成し（説明欄にはメモIDと要約のみ。本文は入れない）、作成後に `record_action_registration` で記録する。何も登録しなかったメモは kind=`none` で記録する。抽出ルールは `.claude/skills/suggest-actions/` のスキルにまとめてある（Claude Code でのみ有効）。Google Tasks と Gemini CLI 対応（自前のOAuth）は旧フェーズ2として保留中（採用済みTODOの管理は voice-memory 内の `todos`。下記「採用済みTODOの管理」）。
 
 ## 予定候補の日次メール（Muse 用）
 `voice-memory-suggest.timer`（毎日6:30頃）が `voice-memory-suggest` を実行し、まだメールしていない未確認メモを自分宛てにメールする。メールを Meta Muse に貼って予定/TODOを提案させる想定。本文は `digest.py` が DB から組み立てる（Claude は組み立てない）。メモごとに、メモID・録音日時(JST)・タイトル・要約（空なら冒頭150字の抜粋）・タグ・**会話内で言及された日時表現**（transcript から機械検出した原文の短い引用。「相対表現」「月のみ」「曖昧」などの区分を付けるだけで、日付には変換しない。検出なしの場合もそう明記）・関連する過去の記録（共通タグから機械選択。使用数が多いタグは無視し、共通タグ2つ以上か、使用3件以下の希少タグ1つのときだけ最大3件）を載せる。全文は載せない。Claude の仕事は、除外対象メモの削除とメール送信だけで、許可ツールは Gmail `send_message` のみ。Calendar へは書かず、`record_action_registration` も呼ばない。健康・医療、金銭・認証情報、第三者の個人情報が中心のメモは除外し、件数だけ載せる。登録は通常モードの `/suggest-actions` で承認して行う。
