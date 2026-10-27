@@ -81,7 +81,7 @@ def _claim(conn: sqlite3.Connection, sha: str, name: str, stored: str, info: aud
         row = dict(conn.execute("SELECT * FROM ingested_files WHERE sha256 = ?", (sha,)).fetchone())
         if inserted:
             return row
-        if row["status"] == "done":
+        if row["status"] in ("done", "deleted"):  # deleted = removed from the viewer; do not resurrect it
             return None
         if row["status"] == "processing":
             age = (datetime.now(timezone.utc) - datetime.fromisoformat(row["updated_at"])).total_seconds()

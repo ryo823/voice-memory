@@ -255,9 +255,13 @@ Claude Code で「最近のメモから予定候補を出して」と頼むと�
 ## ライセンス
 MIT（[LICENSE](LICENSE)）
 
-## スマホ閲覧（読み取り専用Webビューア）
+## スマホ閲覧（Webビューア・削除機能つき）
 
-- `voice-memory-web`（`src/voice_memory/web.py`）が、メモの一覧・検索・タグ絞り込み・詳細（要約＋文字起こし）をスマホ向けHTMLで返す。DBは読むだけ。
+- `voice-memory-web`（`src/voice_memory/web.py`）が、メモの一覧・検索・タグ絞り込み・詳細（要約＋文字起こし）をスマホ向けHTMLで返す。DBは読むだけだが、詳細画面の「このメモを削除…」から削除できる（確認ページ→POST）。
+- 削除対象: メモ本体・要約・文字起こし・タグ紐付け・検索index・`data/recordings/` 内の音声コピー（他のメモと共有している場合のみ残す）。使われなくなったタグも消える。元に戻せない。
+- 取り込み記録（`ingested_files`）は文字起こしを消した上で `deleted` の墓標として残すので、`data/inbox/` やMacに元ファイルが残っていても再取り込みされない。元ファイル（inbox・Mac・Clip本体）自体は消さない。
+- 過去のバックアップ（Drive等）には削除前のデータが残る。
+- 認証がないため、POSTは `Origin` が接続先ホストと一致する場合のみ受け付ける（他サイトからの誤送信対策）。
 - Tailscale IP にのみバインドする（`0.0.0.0` は起動時に拒否）。認証はなく、同じ tailnet の端末だけが見られる前提。インターネットには公開しない。
 - 配置（Pi）: `cp systemd/voice-memory-web.service ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now voice-memory-web.service`
 - 閲覧: iPhone で Tailscale を ON にして `http://100.112.15.37:8765`（Pi の Tailscale IP が変わったらユニットの `VOICE_MEMORY_WEB_HOST` を直す）。

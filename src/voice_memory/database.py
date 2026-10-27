@@ -355,6 +355,42 @@ def get_memory(memory_id: str, db_path=None) -> dict:
         return d
 
 
+def delete_memory(memory_id: str, recordings: Path | str | None = None, db_path=None) -> dict:
+    """Permanently delete one memory: its row, tags links, registrations, FTS entry and (if no other memory
+    shares it) the stored audio copy under `recordings`.
+
+    The ingest record is kept as a tombstone (status 'deleted', transcript wiped) so the same source file
+    sitting in the inbox / on the Mac is not ingested again. Returns {"id", "audio_deleted"}.
+    """
+    memory_id = _clean(memory_id, "id", 64, True)
+    with closing(connect(db_path)) as conn:
+        with conn:  # one transaction
+            row = conn.execute("SELECT audio_path FROM memories WHERE id = ?", (memory_id,)).fetchone()
+            if row is None:
+                raise NotFoundError(f"memory not found: {memory_id}")
+            audio_path = row["audio_path"]
+            conn.execute("DELETE FROM memories_fts WHERE memory_id = ?", (memory_id,))
+            if conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'ingested_files'").fetchone():
+                conn.execute(
+                    "UPDATE ingested_files SET status = 'deleted', transcript = NULL, error = NULL, memory_id = NULL "
+                    "WHERE memory_id = ?", (memory_id,))
+            conn.execute("DELETE FROM memories WHERE id = ?", (memory_id,))  # cascades tag links etc.
+            conn.execute("DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM memory_tags)")
+            shared = audio_path and conn.execute(
+                "SELECT 1 FROM memories WHERE audio_path = ?", (audio_path,)).fetchone()
+    audio_deleted = False
+    if audio_path and not shared:
+        if recordings is None:
+            from .ingest.config import recordings_dir
+            recordings = recordings_dir()
+        root = Path(recordings).resolve()
+        target = (root / audio_path).resolve()
+        if root in target.parents and target.is_file():  # never follow a path out of the recordings dir
+            target.unlink()
+            audio_deleted = True
+    return {"id": memory_id, "audio_deleted": audio_deleted}
+
+
 def recent_memories(limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0) -> list[dict]:
     limit = _clean_limit(limit)
     offset = _clean_offset(offset)

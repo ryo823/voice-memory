@@ -1,4 +1,4 @@
-"""Read-only mobile web viewer for voice memories (bind to a Tailscale IP, never 0.0.0.0)."""
+"""Mobile web viewer for voice memories, with delete (bind to a Tailscale IP, never 0.0.0.0)."""
 from __future__ import annotations
 
 import argparse
@@ -23,6 +23,7 @@ button{font:inherit;padding:10px 14px;border:0;border-radius:8px;background:var(
 .tag.on{background:var(--acc);color:var(--bg);border-color:var(--acc)}.tag small{color:var(--mut)}
 .card{display:block;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;color:inherit;text-decoration:none}
 .card h2{font-size:1rem;margin:0 0 2px}.meta{color:var(--mut);font-size:.8rem}.card p{margin:6px 0 0;font-size:.92rem}
+button.danger{background:#b3261e;color:#fff}a.btn{padding:10px 14px;border-radius:8px;border:1px solid var(--line);color:var(--fg);text-decoration:none}.row{display:flex;gap:8px;align-items:center;margin-top:20px}
 h3{font-size:.9rem;color:var(--mut);margin:20px 0 6px}.body{white-space:pre-wrap;word-break:break-word}.empty{color:var(--mut)}
 """
 
@@ -99,11 +100,25 @@ def render_detail(memory_id: str, db_path=None) -> bytes:
         f'<div class="tags" style="margin-top:8px">{tags}</div>'
         f'<h3>要約</h3><div class="body">{_e(m["summary"]) or "（なし）"}</div>'
         f'<h3>文字起こし</h3><div class="body">{_e(m["transcript"])}</div>'
+        f'<div class="row"><a class="btn" href="/m/{quote(m["id"])}/delete">このメモを削除…</a></div>'
     )
     return _page(m["title"], body)
 
 
-def make_handler(db_path=None):
+def render_delete_confirm(memory_id: str, db_path=None) -> bytes:
+    m = db.get_memory(memory_id, db_path=db_path)
+    audio = "保存済みの音声ファイルも削除されます。" if m["audio_path"] else "音声ファイルはありません。"
+    body = (
+        f'<h2>削除の確認</h2><div class="card"><h2>{_e(m["title"])}</h2>'
+        f'<div class="meta">{_e(m["recorded_at"])}</div></div>'
+        f"<p>このメモ（要約・文字起こし・タグ）を削除します。{audio}元に戻せません。</p>"
+        f'<form class="row" method="post" action="/m/{quote(m["id"])}/delete">'
+        f'<button class="danger">削除する</button><a class="btn" href="/m/{quote(m["id"])}">やめる</a></form>'
+    )
+    return _page("削除の確認", body)
+
+
+def make_handler(db_path=None, recordings=None):
     class Handler(BaseHTTPRequestHandler):
         def _send(self, status: int, payload: bytes) -> None:
             self.send_response(status)
@@ -123,8 +138,30 @@ def make_handler(db_path=None):
                     offset = int(raw) if raw.isdigit() else 0
                     self._send(200, render_index(
                         qs.get("q", [""])[0].strip(), qs.get("tag", [""])[0].strip(), offset, db_path))
+                elif url.path.startswith("/m/") and url.path.endswith("/delete"):
+                    self._send(200, render_delete_confirm(url.path[3:-7], db_path))
                 elif url.path.startswith("/m/"):
                     self._send(200, render_detail(url.path[3:], db_path))
+                else:
+                    self._send(404, _page("Not found", '<p class="empty">ページがありません。</p>'))
+            except db.NotFoundError:
+                self._send(404, _page("Not found", '<p class="empty">メモが見つかりません。</p>'))
+            except db.ValidationError:
+                self._send(400, _page("Bad request", '<p class="empty">入力が不正です。</p>'))
+
+        def do_POST(self):  # noqa: N802
+            url = urlparse(self.path)
+            try:
+                # No auth here, so refuse cross-site form posts: the browser must say the page came from this host.
+                origin = urlparse(self.headers.get("Origin") or "")
+                if origin.netloc != self.headers.get("Host"):
+                    self._send(403, _page("Forbidden", '<p class="empty">リクエストを拒否しました。</p>'))
+                elif url.path.startswith("/m/") and url.path.endswith("/delete"):
+                    db.delete_memory(url.path[3:-7], recordings=recordings, db_path=db_path)
+                    self.send_response(303)
+                    self.send_header("Location", "/")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
                 else:
                     self._send(404, _page("Not found", '<p class="empty">ページがありません。</p>'))
             except db.NotFoundError:
@@ -139,7 +176,7 @@ def make_handler(db_path=None):
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Read-only mobile viewer for voice memories.")
+    ap = argparse.ArgumentParser(description="Mobile viewer (with delete) for voice memories.")
     ap.add_argument("--host", default=os.environ.get("VOICE_MEMORY_WEB_HOST", "127.0.0.1"))
     ap.add_argument("--port", type=int, default=int(os.environ.get("VOICE_MEMORY_WEB_PORT", DEFAULT_PORT)))
     args = ap.parse_args()
