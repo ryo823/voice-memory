@@ -94,6 +94,16 @@ CREATE TABLE IF NOT EXISTS todo_memories (
     PRIMARY KEY (todo_id, memory_id)
 );
 CREATE INDEX IF NOT EXISTS idx_todo_memories_memory ON todo_memories(memory_id);
+-- Log of follow-up reminders about TODOs that were mailed (see followup.py). `basis` says what the reminder was
+-- about (the due date, or the last-activity time), so changing the due date or touching the TODO starts afresh.
+CREATE TABLE IF NOT EXISTS todo_notifications (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    todo_id TEXT NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
+    reason  TEXT NOT NULL CHECK (reason IN ('overdue', 'due_soon', 'stale', 'undated')),
+    basis   TEXT NOT NULL,
+    sent_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_todo_notifications ON todo_notifications(todo_id, reason, basis);
 -- Keyed by memory_id, not memories.rowid: memories has a TEXT primary key, so VACUUM may renumber rowids.
 CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
     memory_id UNINDEXED, title, summary, transcript, tags, tokenize = 'trigram'
