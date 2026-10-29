@@ -5,6 +5,8 @@ touched when there is a new session to fetch. Nothing is ever deleted from the C
 
 Recording follows the charger: a Clip that is recording while charging is stopped (so the session is
 finalized and fetched); an idle Clip that is off the charger is set recording again after the fetch.
+The charging flag is unreliable on a full battery, so a Clip that has been recording for a long time with a
+high battery is treated the same way (stopped, fetched, then recording is resumed).
 """
 from __future__ import annotations
 
@@ -36,6 +38,9 @@ CLIP_MAC = "C3:31:EB:7C:F4:8D"
 SDK = Path.home() / "clip-sdk"
 MAX_ATTEMPTS = 3
 UNREACHABLE_AFTER = 12 * 3600  # notify when the Clip has not answered over BLE for this long
+FULL_BATTERY = 80  # percent; at or above this, a long recording is cut and fetched even if "not charging"
+LONG_RECORDING = 3600  # seconds
+FETCH_TIMEOUT = 1800  # a multi-hour session is ~100 MB over a slow ClipAP link
 CONTROL = PROJECT_ROOT / "scripts" / "clip_control.py"
 SESSION_RE = re.compile(r"^\s+(\d{14}):")
 
@@ -101,7 +106,7 @@ class Clip:
     def fetch(self, session: str, script: Path) -> Path | None:
         ogg = self.sdk / "recordings" / "Clip" / session / f"{session}.ogg"
         ogg.unlink(missing_ok=True)  # never mistake a partial file from an earlier attempt for this fetch
-        r = self.runner([str(script), session], 400)
+        r = self.runner([str(script), session], FETCH_TIMEOUT + 60)
         if r.returncode != 0:
             log.warning("fetch script for %s exited %d: %s", session, r.returncode, (r.stdout or "")[-300:])
             return None
@@ -117,8 +122,8 @@ def sync(clip: Clip, state: dict, ingest: Callable[[Path], dict], script: Path, 
     if info is None:
         log.info("Clip not reachable over BLE; nothing to do")
         return out
-    if info["state"] == "RECORDING" and info.get("charging") and follow_charger and not dry_run:
-        log.info("Clip is recording on the charger; stopping the recording")
+    if info["state"] == "RECORDING" and follow_charger and not dry_run and _should_stop(info):
+        log.info("Clip is recording on the charger or with a full battery; stopping the recording")
         info = clip.control("stop") or info
         out["clip"] = info["state"]
         out["stopped"] = info["state"] == "IDLE"
@@ -134,7 +139,14 @@ def sync(clip: Clip, state: dict, ingest: Callable[[Path], dict], script: Path, 
     return out
 
 
+def _should_stop(info: dict) -> bool:
+    if info.get("charging"):
+        return True
+    return (info.get("battery") or 0) >= FULL_BATTERY and (info.get("duration") or 0) >= LONG_RECORDING
+
+
 def _resume_recording(clip: Clip, out: dict) -> None:
+    clip._cli("wifi", "off")  # the Clip refuses to record while its AP is up; failure is fine, start reports it
     # Right after a Wi-Fi fetch the Clip is briefly WIFI_SYNC and may refuse; the next run retries.
     info = clip.control("start")
     out["resumed"] = bool(info and info["state"] == "RECORDING")

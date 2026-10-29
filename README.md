@@ -179,6 +179,7 @@ Clip が Pi の BLE 圏内にいる間、新しいセッションを取得して
 
 - 状態は `data/clip_sync_state.json`（Git管理外, `VOICE_MEMORY_CLIP_STATE` で変更可）。`done`/`ignored` は再取得しない。失敗は最大3回まで。
 - 録音は充電器に連動する（BLEの `AT+STOP` / `AT+START`、`scripts/clip_control.py`）。**充電中に録音中**なら停止してセッションを確定し、そのまま取得する。**充電器から外れていて IDLE** なら、取得後に録音を自動再開する（外れている間に手動で止めても5分以内に再開される）。充電中の IDLE は止めたまま。無効化は `--no-charger-control`。
+- 充電中でなくても、**バッテリー80%以上で録音が1時間以上続いている**場合は同様に停止して取得する（満充電だと充電フラグが立たないことがあるため）。取得後は ClipAP を閉じて録音を再開する。
 - それ以外の State（録音中で非充電、WIFI_SYNC など）は触らない。Clip 内の録音は削除しない。
 - 取得時のみ wlan0 を一時的に ClipAP へ切り替える（`scripts/clip_wifi_sync.sh`）。
 - 定期実行は `systemd/voice-memory-clip-sync.{service,timer}`（ユーザーユニット, 5分間隔）。有効化:

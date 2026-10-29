@@ -212,7 +212,8 @@ def test_api_key_never_logged(env, monkeypatch, caplog):
 
 
 # --- clip_sync ---
-def _fake_clip(tmp_path, clip_state="IDLE", sessions=("20261024115101",), fetch_ok=True, charging=False):
+def _fake_clip(tmp_path, clip_state="IDLE", sessions=("20261024115101",), fetch_ok=True, charging=False,
+               battery=72, duration=0):
     import json
     import subprocess
     from voice_memory.ingest import clip_sync
@@ -230,7 +231,7 @@ def _fake_clip(tmp_path, clip_state="IDLE", sessions=("20261024115101",), fetch_
                 box["state"] = "IDLE"
             if cmd[3] == "start" and box["state"] == "IDLE":
                 box["state"] = "RECORDING"
-            out = json.dumps({"state": box["state"], "charging": charging, "battery": 72})
+            out = json.dumps({"state": box["state"], "charging": charging, "battery": battery, "duration": duration})
             return subprocess.CompletedProcess(cmd, 0, out, "")
         if name.endswith("clip_wifi_sync.sh"):
             if fetch_ok:
@@ -301,6 +302,21 @@ def test_clip_sync_stops_recording_on_charger_then_fetches(tmp_path):
     r = clip_sync.sync(clip, {}, lambda p: {"memory_id": "m1"}, Path("clip_wifi_sync.sh"))
     assert r["stopped"] is True and r["done"] == ["20261024115101"]
     assert [c[3] for c in calls if c[1].endswith("clip_control.py")] == ["state", "stop"]  # still charging: no restart
+
+
+def test_clip_sync_stops_long_recording_with_full_battery_even_if_not_charging(tmp_path):
+    from voice_memory.ingest import clip_sync
+
+    ctl = lambda calls: [c[3] for c in calls if c[1].endswith("clip_control.py")]
+    clip, calls = _fake_clip(tmp_path, clip_state="RECORDING", battery=100, duration=72000)
+    r = clip_sync.sync(clip, {}, lambda p: {"memory_id": "m1"}, Path("clip_wifi_sync.sh"))
+    assert r["stopped"] is True and r["done"] == ["20261024115101"] and r["resumed"] is True
+    assert ctl(calls) == ["state", "stop", "start"]
+    assert any(c[-2:] == ["wifi", "off"] for c in calls)  # AP closed before recording restarts
+    for kw in ({"battery": 79, "duration": 72000}, {"battery": 100, "duration": 600}):  # low battery / short
+        clip, calls = _fake_clip(tmp_path, clip_state="RECORDING", **kw)
+        r = clip_sync.sync(clip, {}, lambda p: {}, Path("clip_wifi_sync.sh"))
+        assert ctl(calls) == ["state"] and r["clip"] == "RECORDING"
 
 
 def test_clip_sync_resumes_recording_off_charger(tmp_path):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tiny BLE helper run with the clip-sdk venv: `clip_control.py MAC state|stop|start`.
 
-Prints one JSON line. `state` reports {"state", "charging", "battery"}; `stop`/`start` only change
+Prints one JSON line. `state` reports {"state", "charging", "battery", "duration"} (duration: seconds recorded so far); `stop`/`start` only change
 the recording state (they never delete anything on the Clip).
 """
 import asyncio
@@ -22,7 +22,7 @@ async def main(mac: str, action: str) -> dict:
         elif action == "start":
             await cmds.start_recording()
         s = await cmds.get_state()
-        return {"state": s.state, "charging": s.charging, "battery": s.battery}
+        return {"state": s.state, "charging": s.charging, "battery": s.battery, "duration": s.duration}
 
 
 if __name__ == "__main__":

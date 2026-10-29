@@ -30,4 +30,4 @@ sudo -n nmcli con add type wifi ifname wlan0 con-name "$AP_CON" ssid "$SSID" aut
 sudo -n nmcli con up "$AP_CON" ifname wlan0 || exit 3
 sleep "${SETTLE:-3}"; ip -br a show wlan0
 # pipefail: the exit status is that of `timeout ... clip-cli sync` (124 on timeout), not of tail
-timeout 150 "$SDK/venv/bin/python" tools/clip-cli.py --transport wifi -o "$SDK/recordings" sync --session "$SESSION" 2>&1 | tr '\r' '\n' | tail -15
+timeout 1500 "$SDK/venv/bin/python" tools/clip-cli.py --transport wifi -o "$SDK/recordings" sync --session "$SESSION" 2>&1 | tr '\r' '\n' | tail -15
