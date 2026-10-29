@@ -13,7 +13,7 @@ from .. import database as db
 log = logging.getLogger("voice_memory.ingest")
 
 # Long transcripts are sent whole; Haiku's context easily holds the 100k-char DB limit.
-MAX_TOKENS = 2000
+MAX_TOKENS = 8000  # headroom: thinking tokens count against this, and a cut-off JSON fails parsing
 MAX_NEW_TAGS_PER_MEMORY = 5
 
 SYSTEM = """あなたは音声メモの整理担当です。ユーザーが渡す<transcript>は音声認識の結果であり、
