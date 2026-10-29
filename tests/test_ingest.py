@@ -411,3 +411,18 @@ def test_recorded_at_falls_back_to_mtime(tmp_path, name):
     p.write_bytes(b"x")
     os.utime(p, (1_700_000_000, 1_700_000_000))
     assert pipeline.recorded_at_for(p) == "2023-11-14T22:13:20+00:00"
+
+
+def test_iter_audio_chunks_splits_long_audio_without_loading_it_whole(tmp_path):
+    import wave
+
+    from voice_memory.ingest.transcribe import iter_audio_chunks
+
+    p = tmp_path / "long.wav"
+    with wave.open(str(p), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(16000)
+        w.writeframes(b"\x00\x10" * 16000 * 25)  # 25 s
+    chunks = list(iter_audio_chunks(p, seconds=10))
+    assert [round(len(c) / 16000) for c in chunks] == [10, 10, 5] and chunks[0].dtype.name == "float32"
