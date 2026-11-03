@@ -43,7 +43,7 @@ def upload(dest: Path, remote: str, runner=subprocess.run) -> None:
     base = remote.rstrip("/")
     steps = [
         ["rclone", "sync", str(dest), base, "--include", f"{PREFIX}*.db", "--include", "clip_sync_state.json"],
-        ["rclone", "copy", str(dest / "recordings"), f"{base}/recordings"],
+        ["rclone", "copy", "--checksum", str(dest / "recordings"), f"{base}/recordings"],
         ["rclone", "check", "--one-way", str(dest / "recordings"), f"{base}/recordings"],
     ]
     for cmd in steps:

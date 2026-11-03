@@ -109,7 +109,7 @@ def test_upload_never_syncs_recordings_with_delete(env):
     backup.upload(dest, "gdrive:voice-memory", runner)
     assert [c[1] for c in calls] == ["sync", "copy", "check"]
     assert "--include" in calls[0] and calls[0][3] == "gdrive:voice-memory"  # sync is limited to snapshots/state
-    assert calls[1][1] == "copy" and calls[1][3].endswith("/recordings")
+    assert calls[1][1] == "copy" and calls[1][4].endswith("/recordings")
 
 
 @pytest.mark.parametrize("step", ["sync", "copy", "check"])
