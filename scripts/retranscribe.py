@@ -51,8 +51,11 @@ def main() -> int:
 
     with closing(db.connect()) as conn:
         conn.executescript(HISTORY)
+        db.migrate(conn)
         rows = conn.execute(
             "SELECT id, audio_path, title FROM memories WHERE source='audio-ingest' AND audio_path IS NOT NULL "
+            # a chunk of a split recording shares the file's audio: re-transcribing it would paste the whole file in
+            "AND archived = 0 AND split_method IS NULL "
             "AND created_at < ? AND id NOT IN (SELECT memory_id FROM transcript_history) ORDER BY recorded_at",
             (args.before,)).fetchall()
         if args.limit:

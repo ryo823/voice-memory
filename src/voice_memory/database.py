@@ -36,9 +36,21 @@ CREATE TABLE IF NOT EXISTS memories (
     transcript  TEXT NOT NULL,
     audio_path  TEXT,
     source      TEXT NOT NULL DEFAULT 'manual',
-    created_at  TEXT NOT NULL
+    created_at  TEXT NOT NULL,
+    audio_start_sec  REAL,
+    audio_end_sec    REAL,
+    parent_memory_id TEXT REFERENCES memories(id),
+    split_method     TEXT,
+    archived         INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_memories_recorded_at ON memories(recorded_at DESC);
+-- One audio file -> several memories (split by silence gaps). file_sha256 is ingested_files.sha256.
+CREATE TABLE IF NOT EXISTS ingested_file_memories (
+    file_sha256   TEXT    NOT NULL,
+    memory_id     TEXT    NOT NULL PRIMARY KEY REFERENCES memories(id) ON DELETE CASCADE,
+    segment_index INTEGER NOT NULL,
+    UNIQUE (file_sha256, segment_index)
+);
 CREATE TABLE IF NOT EXISTS tags (
     id   INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE
@@ -141,11 +153,45 @@ def connect(db_path: Path | str | None = None) -> sqlite3.Connection:
     return conn
 
 
+# Columns added after the first release; ALTER TABLE ADD COLUMN only, so existing rows are untouched.
+MEMORY_MIGRATION_COLUMNS = (
+    ("audio_start_sec", "REAL"),
+    ("audio_end_sec", "REAL"),
+    ("parent_memory_id", "TEXT REFERENCES memories(id)"),
+    ("split_method", "TEXT"),
+    ("archived", "INTEGER NOT NULL DEFAULT 0"),
+)
+
+
+def migrate(conn: sqlite3.Connection) -> list[str]:
+    """Add the conversation-split columns to an older `memories` table. Idempotent; returns what it added."""
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(memories)")}
+    added = []
+    for name, decl in MEMORY_MIGRATION_COLUMNS:
+        if name not in have:
+            try:
+                conn.execute(f"ALTER TABLE memories ADD COLUMN {name} {decl}")
+                added.append(name)
+            except sqlite3.OperationalError as e:  # another process added it between the check and the ALTER
+                if "duplicate column" not in str(e):
+                    raise
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_memories_parent ON memories(parent_memory_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_memories_archived ON memories(archived)")
+    conn.commit()
+    return added
+
+
+def ensure_schema(conn: sqlite3.Connection) -> None:
+    """Create missing tables, then migrate. Safe to call repeatedly."""
+    conn.executescript(SCHEMA)
+    conn.commit()
+    migrate(conn)
+
+
 def init_db(db_path: Path | str | None = None) -> None:
-    """Create tables if missing. Safe to call repeatedly."""
+    """Create tables if missing and migrate older DBs. Safe to call repeatedly."""
     with closing(connect(db_path)) as conn:
-        conn.executescript(SCHEMA)
-        conn.commit()
+        ensure_schema(conn)
         ensure_fts(conn)
 
 
@@ -295,6 +341,13 @@ def save_memory(
     audio_path: str | None = None,
     db_path: Path | str | None = None,
     conn: sqlite3.Connection | None = None,
+    *,
+    audio_start_sec: float | None = None,
+    audio_end_sec: float | None = None,
+    parent_memory_id: str | None = None,
+    split_method: str | None = None,
+    file_sha256: str | None = None,
+    segment_index: int | None = None,
 ) -> dict:
     """Save a memory. With `conn`, the insert joins the caller's transaction (no commit here)."""
     title = _clean(title, "title", MAX_TITLE, True)
@@ -321,10 +374,14 @@ def save_memory(
 
     def insert(c: sqlite3.Connection) -> None:
         c.execute(
-            "INSERT INTO memories (id, recorded_at, title, summary, transcript, audio_path, source, created_at) "
-            "VALUES (?,?,?,?,?,?,?,?)",
-            (memory_id, recorded_at, title, summary, transcript, audio_path, source, _now()),
+            "INSERT INTO memories (id, recorded_at, title, summary, transcript, audio_path, source, created_at, "
+            "audio_start_sec, audio_end_sec, parent_memory_id, split_method) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (memory_id, recorded_at, title, summary, transcript, audio_path, source, _now(),
+             audio_start_sec, audio_end_sec, parent_memory_id, split_method),
         )
+        if file_sha256 is not None:
+            c.execute("INSERT INTO ingested_file_memories (file_sha256, memory_id, segment_index) VALUES (?,?,?)",
+                      (file_sha256, memory_id, segment_index or 0))
         for name in tag_list:
             c.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,))
             c.execute(
@@ -352,7 +409,8 @@ def _fts_term(term: str) -> str:
     return '"' + term.replace('"', '""') + '"'
 
 
-def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0) -> list[dict]:
+def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0,
+                    include_archived: bool = False) -> list[dict]:
     """AND search over whitespace-separated terms in title, summary, transcript and tags.
 
     Terms of FTS_MIN_TERM+ characters use the trigram FTS index; shorter ones fall back
@@ -365,7 +423,7 @@ def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None, offset
     long_terms = [t for t in terms if len(t) >= FTS_MIN_TERM]
     short_terms = [t for t in terms if len(t) < FTS_MIN_TERM]
 
-    where: list[str] = []
+    where: list[str] = [] if include_archived else ["m.archived = 0"]
     params: list = []
     if long_terms:
         where.append("m.id IN (SELECT memory_id FROM memories_fts WHERE memories_fts MATCH ?)")
@@ -410,9 +468,19 @@ def delete_memory(memory_id: str, recordings: Path | str | None = None, db_path=
             audio_path = row["audio_path"]
             conn.execute("DELETE FROM memories_fts WHERE memory_id = ?", (memory_id,))
             if conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'ingested_files'").fetchone():
-                conn.execute(
-                    "UPDATE ingested_files SET status = 'deleted', transcript = NULL, error = NULL, memory_id = NULL "
-                    "WHERE memory_id = ?", (memory_id,))
+                # A file split into several memories stays ingested until its last live memory is deleted.
+                sibling = conn.execute(
+                    "SELECT s.memory_id FROM ingested_file_memories s JOIN ingested_file_memories me "
+                    "ON me.file_sha256 = s.file_sha256 WHERE me.memory_id = ? AND s.memory_id != ? "
+                    "ORDER BY s.segment_index LIMIT 1", (memory_id, memory_id)).fetchone()
+                if sibling is None:
+                    conn.execute(
+                        "UPDATE ingested_files SET status = 'deleted', transcript = NULL, error = NULL, "
+                        "memory_id = NULL WHERE memory_id = ?", (memory_id,))
+                else:
+                    conn.execute("UPDATE ingested_files SET memory_id = ? WHERE memory_id = ?",
+                                 (sibling["memory_id"], memory_id))
+            conn.execute("UPDATE memories SET parent_memory_id = NULL WHERE parent_memory_id = ?", (memory_id,))
             conn.execute("DELETE FROM memories WHERE id = ?", (memory_id,))  # cascades tag links etc.
             conn.execute("DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM memory_tags)")
             shared = audio_path and conn.execute(
@@ -430,12 +498,14 @@ def delete_memory(memory_id: str, recordings: Path | str | None = None, db_path=
     return {"id": memory_id, "audio_deleted": audio_deleted}
 
 
-def recent_memories(limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0) -> list[dict]:
+def recent_memories(limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0,
+                    include_archived: bool = False) -> list[dict]:
     limit = _clean_limit(limit)
     offset = _clean_offset(offset)
     with closing(connect(db_path)) as conn:
         rows = conn.execute(
-            "SELECT * FROM memories ORDER BY recorded_at DESC, created_at DESC LIMIT ? OFFSET ?", (limit, offset)
+            "SELECT * FROM memories " + ("" if include_archived else "WHERE archived = 0 ")
+            + "ORDER BY recorded_at DESC, created_at DESC LIMIT ? OFFSET ?", (limit, offset)
         ).fetchall()
         return _summarize(conn, rows)
 
@@ -447,7 +517,7 @@ def memories_by_tag(tag: str, limit: int = DEFAULT_LIMIT, db_path=None, offset: 
     offset = _clean_offset(offset)
     with closing(connect(db_path)) as conn:
         rows = conn.execute(
-            "SELECT m.* FROM memories m WHERE m.id IN (SELECT mt.memory_id FROM memory_tags mt "
+            "SELECT m.* FROM memories m WHERE m.archived = 0 AND m.id IN (SELECT mt.memory_id FROM memory_tags mt "
             "JOIN tags t ON t.id = mt.tag_id WHERE t.name = ?) "
             "ORDER BY m.recorded_at DESC, m.created_at DESC LIMIT ? OFFSET ?",
             (tag, limit, offset),
@@ -467,7 +537,7 @@ def pending_memories(days: int = DEFAULT_PENDING_DAYS, limit: int = DEFAULT_LIMI
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
     with closing(connect(db_path)) as conn:
         rows = conn.execute(
-            "SELECT m.* FROM memories m WHERE julianday(m.recorded_at) >= julianday(?) "
+            "SELECT m.* FROM memories m WHERE julianday(m.recorded_at) >= julianday(?) AND m.archived = 0 "
             "AND NOT EXISTS (SELECT 1 FROM registrations r WHERE r.memory_id = m.id) "
             + ("AND NOT EXISTS (SELECT 1 FROM suggestions s WHERE s.memory_id = m.id) " if exclude_suggested else "")
             + "ORDER BY m.recorded_at DESC, m.created_at DESC LIMIT ?",
@@ -513,8 +583,9 @@ def mark_suggested(memory_ids: list[str], db_path=None) -> int:
 def list_tags(db_path=None) -> list[dict]:
     with closing(connect(db_path)) as conn:
         rows = conn.execute(
-            "SELECT t.name, COUNT(mt.memory_id) AS count FROM tags t "
-            "LEFT JOIN memory_tags mt ON mt.tag_id = t.id GROUP BY t.id "
+            "SELECT t.name, COUNT(m.id) AS count FROM tags t "
+            "LEFT JOIN memory_tags mt ON mt.tag_id = t.id "
+            "LEFT JOIN memories m ON m.id = mt.memory_id AND m.archived = 0 GROUP BY t.id "
             "ORDER BY count DESC, t.name"
         ).fetchall()
         return [dict(r) for r in rows]

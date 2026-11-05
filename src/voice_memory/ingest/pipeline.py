@@ -4,8 +4,11 @@ States in ingested_files (keyed by SHA-256 of the audio bytes):
   processing -> transcribed -> done      (failure at any step -> failed)
 `done` files are skipped (no double registration). `failed`/`transcribed`/stale `processing`
 rows are resumed; the cached transcript avoids re-running speech recognition.
-The memory row and the `done` mark are written in ONE transaction, so a crash can never leave
+The memory row(s) and the `done` mark are written in ONE transaction, so a crash can never leave
 a memory without its ingest record (or the reverse). Source audio is never deleted.
+A long file (>= split.min_duration) is split at pauses in speech into several memories, all written in that
+same transaction: either every chunk exists and the file is `done`, or none does and the run resumes from the
+cached timed transcript (ingested_files.segments_json), so no chunk can be lost behind the SHA-256 skip.
 """
 from __future__ import annotations
 
@@ -18,9 +21,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .. import database as db
-from . import audio
+from . import audio, split
 from .summarize import Summarizer, SummarizeError
-from .transcribe import Transcriber, TranscribeError
+from .transcribe import TimedTranscript, Transcriber, TranscribeError
 
 log = logging.getLogger("voice_memory.ingest")
 
@@ -43,9 +46,22 @@ CREATE TABLE IF NOT EXISTS ingested_files (
     error         TEXT,
     memory_id     TEXT REFERENCES memories(id) ON DELETE SET NULL,
     created_at    TEXT NOT NULL,
-    updated_at    TEXT NOT NULL
+    updated_at    TEXT NOT NULL,
+    segments_json TEXT
 );
 """
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add columns introduced after the first release to an existing ingested_files table."""
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(ingested_files)")}
+    if "segments_json" not in have:
+        try:
+            conn.execute("ALTER TABLE ingested_files ADD COLUMN segments_json TEXT")
+            conn.commit()
+        except sqlite3.OperationalError as e:
+            if "duplicate column" not in str(e):
+                raise
 
 
 class IngestError(RuntimeError):
@@ -117,6 +133,14 @@ def _store_copy(src: Path, sha: str, recordings: Path) -> str:
     return str(rel)
 
 
+def chunk_recorded_at(src: Path, base: str, start_sec: float) -> str:
+    """Recording time of a chunk: Voice Memos name stamps are the recording start, so add the offset into the file.
+    Other sources (file mtime) keep the file's time for every chunk."""
+    if not VOICEMEMO_NAME.match(src.name):
+        return base
+    return (datetime.fromisoformat(base) + timedelta(seconds=start_sec)).isoformat(timespec="seconds")
+
+
 def process_file(
     path: Path | str,
     transcriber: Transcriber,
@@ -124,6 +148,7 @@ def process_file(
     *,
     db_path: Path | str | None = None,
     recordings: Path | None = None,
+    split_config: split.SplitConfig | None = None,
 ) -> dict:
     """Returns {"status": "done"|"skipped", ...}. Raises audio.InvalidAudioError or IngestError."""
     from .config import recordings_dir
@@ -134,9 +159,10 @@ def process_file(
     sha = audio.sha256_file(src)
 
     with closing(db.connect(db_path)) as conn:
-        conn.executescript(db.SCHEMA)
+        db.ensure_schema(conn)
         db.ensure_fts(conn)  # ingest bypasses init_db; index an old DB before save_memory writes to FTS
         conn.executescript(SCHEMA)
+        _migrate(conn)
         try:
             stored = _store_copy(src, sha, recordings)
         except OSError as e:
@@ -147,37 +173,68 @@ def process_file(
             log.info("skip %s (sha256 %s…, status %s)", src.name, sha[:12], mid["status"])
             return {"status": "skipped", "sha256": sha, "memory_id": mid["memory_id"], "reason": mid["status"]}
         try:
+            cfg = split_config or split.SplitConfig.from_env()
             transcript = row.get("transcript")
+            timed = TimedTranscript.from_json(row["segments_json"]) if row.get("segments_json") else None
             if transcript is None:
                 log.info("transcribing %s (%.0fs audio)", src.name, info.duration_sec)
-                transcript = transcriber.transcribe(src).strip()
+                timed_fn = getattr(transcriber, "transcribe_timed", None)
+                if timed_fn is not None:
+                    timed = timed_fn(src)
+                    transcript = timed.text.strip()
+                else:
+                    transcript = transcriber.transcribe(src).strip()
                 if not transcript:
                     raise IngestError("transcription was empty (silence or unintelligible audio)")
+                cols = dict(transcript=transcript, status="transcribed")
+                if timed is not None:
+                    cols["segments_json"] = timed.to_json()
+                _set(conn, sha, **cols)
+
+            chunks: list[split.Chunk] = []
+            if timed is not None and cfg.enabled and info.duration_sec >= cfg.min_duration:
+                chunks = split.split_transcript(timed, cfg)
+            if len(chunks) <= 1:
+                chunks = []
                 if len(transcript) > db.MAX_TRANSCRIPT:
                     raise IngestError(f"transcript is {len(transcript)} chars, over the {db.MAX_TRANSCRIPT} limit")
-                _set(conn, sha, transcript=transcript, status="transcribed")
 
-            title, summary, tags = "", "", []
-            if summarizer is not None:
-                existing = [t["name"] for t in db.list_tags(db_path)]
-                s = summarizer.summarize(transcript, existing)
-                title, summary, tags = s.title, s.summary, s.tags
-            if not title:
-                title = f"{src.stem} ({datetime.now().strftime('%Y-%m-%d %H:%M')})"[: db.MAX_TITLE]
-
+            existing = [t["name"] for t in db.list_tags(db_path)] if summarizer is not None else []
             recorded_at = recorded_at_for(src)
-            with conn:  # memory + done mark: one transaction
-                saved = db.save_memory(
-                    title, transcript, summary, tags, source=SOURCE,
-                    recorded_at=recorded_at, audio_path=stored, conn=conn,
-                )
+            parts = chunks or [None]
+            prepared = []
+            for i, ch in enumerate(parts):
+                text = ch.text if ch else transcript
+                title, summary, tags = "", "", []
+                if summarizer is not None:
+                    s_ = summarizer.summarize(text, existing)
+                    title, summary, tags = s_.title, s_.summary, s_.tags
+                if not title:
+                    label = f"{src.stem} ({datetime.now().strftime('%Y-%m-%d %H:%M')})"
+                    title = (f"{label} [{i + 1}/{len(parts)}]" if ch else label)[: db.MAX_TITLE]
+                prepared.append((ch, text, title, summary, tags))
+
+            saved_all = []
+            with conn:  # every memory + the done mark: one transaction
+                for i, (ch, text, title, summary, tags) in enumerate(prepared):
+                    extra = {}
+                    if ch is not None:
+                        extra = dict(audio_start_sec=round(ch.start, 1), audio_end_sec=round(ch.end, 1),
+                                     split_method=split.METHOD, file_sha256=sha, segment_index=i)
+                    saved_all.append(db.save_memory(
+                        title, text, summary, tags, source=SOURCE,
+                        recorded_at=chunk_recorded_at(src, recorded_at, ch.start) if ch else recorded_at,
+                        audio_path=stored, conn=conn, **extra,
+                    ))
                 conn.execute(
                     "UPDATE ingested_files SET status='done', memory_id=?, error=NULL, updated_at=? WHERE sha256=?",
-                    (saved["id"], _now(), sha),
+                    (saved_all[0]["id"], _now(), sha),
                 )
-            log.info("saved memory %s (%d tags)", saved["id"], len(tags))
-            return {"status": "done", "sha256": sha, "memory_id": saved["id"], "title": title,
-                    "tags": saved["tags"], "audio_path": stored}
+            log.info("saved %d memor%s from %s", len(saved_all), "y" if len(saved_all) == 1 else "ies", src.name)
+            first = saved_all[0]
+            return {"status": "done", "sha256": sha, "memory_id": first["id"],
+                    "memory_ids": [m["id"] for m in saved_all], "chunks": len(saved_all),
+                    "title": first["title"], "tags": first["tags"], "audio_path": stored}
         except (TranscribeError, SummarizeError, IngestError, db.ValidationError, sqlite3.Error) as e:
             _set(conn, sha, error=f"{type(e).__name__}: {e}"[:1000],
                  status="transcribed" if _has_transcript(conn, sha) else "failed")
