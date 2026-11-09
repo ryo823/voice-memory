@@ -1,4 +1,4 @@
-"""Search quality baseline. Usage: eval_search.py [--json OUT.json]
+"""Search quality baseline. Usage: eval_search.py [--order recent|bm25|both] [--json OUT.json]
 
 Builds a throwaway DB from tests/fixtures/search_eval.json (synthetic data only), runs
 database.search_memories for every query and reports Recall@5 / Recall@10 / MRR.
@@ -41,12 +41,12 @@ def mean(rows: list[dict]) -> dict:
     return {"n": n, **{k: sum(r[k] for r in rows) / n for k in (*(f"recall@{k}" for k in KS), "rr")}}
 
 
-def evaluate(fixture: dict, db_path: Path) -> dict:
+def evaluate(fixture: dict, db_path: Path, order: str | None = None) -> dict:
     ids = build_db(fixture, db_path)
     key_of = {v: k for k, v in ids.items()}
     per_query = []
     for q in fixture["queries"]:
-        hits = db.search_memories(q["query"], limit=db.MAX_LIMIT, db_path=db_path)
+        hits = db.search_memories(q["query"], limit=db.MAX_LIMIT, db_path=db_path, order=order)
         ranked = [key_of[h["id"]] for h in hits]
         per_query.append({**q, "returned": len(ranked), "top10": ranked[:10],
                           **score(ranked, set(q["relevant"]))})
@@ -73,13 +73,21 @@ def report(res: dict) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--order", choices=(*db.SEARCH_ORDERS, "both"), default="both",
+                    help="ranking to measure (default: both, printed one after the other)")
     ap.add_argument("--json", help="also write the machine-readable result here")
     args = ap.parse_args()
+    orders = db.SEARCH_ORDERS if args.order == "both" else (args.order,)
+    results = {}
     with tempfile.TemporaryDirectory() as d:
-        res = evaluate(load_fixture(), Path(d) / "eval.db")
-    print(report(res))
+        for o in orders:
+            results[o] = evaluate(load_fixture(), Path(d) / f"eval_{o}.db", order=o)
+    for o, res in results.items():
+        print(f"== order={o} ==")
+        print(report(res), end="\n\n")
     if args.json:
-        Path(args.json).write_text(json.dumps(res, ensure_ascii=False, indent=2), encoding="utf-8")
+        out = results[orders[0]] if len(orders) == 1 else results
+        Path(args.json).write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

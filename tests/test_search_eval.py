@@ -37,7 +37,7 @@ def test_score_no_hit():
 
 
 def test_baseline_of_current_search(fixture, tmp_path):
-    """Pins today's behaviour (FTS AND match, newest first). If search changes on purpose,
+    """Pins the metrics of the default search (FTS AND match; bm25 and newest-first score identically on this set). If search changes on purpose,
     re-run scripts/eval_search.py and update this and docs/search-eval-baseline.md together."""
     res = ev.evaluate(fixture, tmp_path / "eval.db")
     o = res["overall"]
