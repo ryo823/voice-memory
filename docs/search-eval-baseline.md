@@ -44,3 +44,26 @@ python scripts/eval_search.py [--json 出力先.json]
 - 空白なしの複合クエリは1語として trigram 照合されるため、一部の語が合っていても0件になる（q13, q14）。
 - tag の Recall@5 が 1.0 に届かないのは、買い物・健康のように正解が8件あり Recall@5 の上限が 5/8 になるため（Recall@10 は 1.0）。
 - 返却件数は多くのクエリで正解数ちょうど。適合率（余計な件が混ざる度合い）は今回の指標に含めていない。運動（正解2件）は本文に「運動」を含む別メモも合わせて4件返り、新しい順のため正解が先頭とは限らない。
+
+## 並び順の比較: 新しい順（recent）と bm25（Issue #3）
+
+`search_memories` に並び順の切り替え（`order="recent" | "bm25"`、環境変数 `VOICE_MEMORY_SEARCH_ORDER`）を追加し、同じ評価セットで両方式を測った（`python scripts/eval_search.py` は両方式を続けて出力する。`--order` で片方のみ）。
+
+- bm25: `memories_fts` と JOIN し `ORDER BY bm25(memories_fts, 重み...), recorded_at DESC`。カラム重みは `database.BM25_WEIGHTS`（title 10 > summary 5 > tags 3 > transcript 1）。
+- 3文字未満の語だけのクエリ（LIKE経路）はスコアが無いため、どちらの設定でも新しい順のまま。長い語と短い語が混在する場合は、長い語の FTS スコアで並ぶ。
+- 一致判定（AND・trigram・LIKE）は変更していない。件数・Recall の分母は同じ。
+
+| 区分 | 方式 | Recall@5 | Recall@10 | MRR |
+|---|---|---|---|---|
+| 全体 | recent | 0.662 | 0.700 | 0.700 |
+| 全体 | bm25 | 0.662 | 0.700 | 0.700 |
+| exact | recent / bm25 | 1.000 | 1.000 | 1.000 |
+| short | recent / bm25 | 1.000 | 1.000 | 1.000 |
+| tag | recent / bm25 | 0.812 | 1.000 | 1.000 |
+| paraphrase（判定対象外） | recent / bm25 | 0.000 | 0.000 | 0.000 |
+
+両方式で全指標が同値。上位10件の並びが変わったのは q19（買い物）のみで、返る8件すべてが正解のため指標は動かない。この評価セットでは bm25 の効果は測定できず、悪化もない。
+
+### 判定: bm25 を既定にする
+
+基準（全体 MRR ≥ 0.700 かつ Recall@5 ≥ 0.662、区分別 Recall@10 に悪化なし）を満たす（MRR 0.700、Recall@5 0.662、全区分の Recall@10 は同値）。基準どおり `DEFAULT_SEARCH_ORDER = "bm25"` とした。ただし根拠は「悪化がない」ことであり、改善は確認できていない（評価セットでは正解が先頭付近に偏らず差が出にくい）。ロールバックは `VOICE_MEMORY_SEARCH_ORDER=recent`（または `DEFAULT_SEARCH_ORDER` の変更）で済む。
