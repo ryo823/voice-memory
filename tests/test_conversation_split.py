@@ -201,6 +201,17 @@ def test_deleting_a_parent_detaches_its_children(db_path):
 def test_mail_groups_memos_from_one_recording(env):
     kw, f = env
     r = process_file(f, TimedSTT(timed_two_blocks()), NumberedLLM(), **kw)
+    # The fixture is named 2026-11-01, so as calendar time passes its memos fall
+    # outside digest's 7-day pending window. Shift them to "now" (keeping their
+    # spacing) so this test checks grouping, not the date it happens to run on.
+    from datetime import datetime, timezone
+    rows = mem_rows(kw["db_path"])
+    shift = datetime.now(timezone.utc) - datetime.fromisoformat(rows[0]["recorded_at"])
+    with closing(db.connect(kw["db_path"])) as c:
+        for m in rows:
+            c.execute("UPDATE memories SET recorded_at = ? WHERE id = ?",
+                      ((datetime.fromisoformat(m["recorded_at"]) + shift).isoformat(timespec="seconds"), m["id"]))
+        c.commit()
     db.save_memory("other", "別の短いメモ", db_path=kw["db_path"])
     body, ids = digest.build(db_path=kw["db_path"])
     assert body.count("同じ録音ファイルから会話ごとに分割されたメモ(2件") == 1
