@@ -16,3 +16,4 @@ data/notify_state.*
 data/inbox/
 data/inbox_state.*
 data/bench/
+data/resplit-cache/

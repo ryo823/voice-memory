@@ -1,7 +1,9 @@
 """Local speech-to-text with faster-whisper (CPU). Swappable via the Transcriber protocol."""
 from __future__ import annotations
 
+import json
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -14,6 +16,30 @@ class TranscribeError(RuntimeError):
 
 class Transcriber(Protocol):
     def transcribe(self, path: Path) -> str: ...
+
+
+@dataclass
+class TimedTranscript:
+    """Whisper segments (start, end, text) plus VAD speech spans, both in seconds from the file start.
+
+    Whisper segments run back to back (a pause is absorbed into the neighbouring segment), so the speech
+    spans are what tell where a pause really is.
+    """
+    segments: list[tuple[float, float, str]] = field(default_factory=list)
+    speech: list[tuple[float, float]] = field(default_factory=list)
+
+    @property
+    def text(self) -> str:
+        return "\n".join(t for _, _, t in self.segments)
+
+    def to_json(self) -> str:
+        return json.dumps({"segments": self.segments, "speech": self.speech}, ensure_ascii=False)
+
+    @classmethod
+    def from_json(cls, raw: str) -> "TimedTranscript":
+        d = json.loads(raw)
+        return cls([(float(a), float(b), str(t)) for a, b, t in d["segments"]],
+                   [(float(a), float(b)) for a, b in d["speech"]])
 
 
 SAMPLE_RATE = 16000
@@ -58,15 +84,27 @@ class WhisperTranscriber:
             )
         return self._model
 
-    def transcribe(self, path: Path) -> str:
+    def transcribe_timed(self, path: Path) -> TimedTranscript:
         try:
+            from faster_whisper.vad import VadOptions, get_speech_timestamps
+
             model = self._load()
-            lines: list[str] = []
+            out = TimedTranscript()
+            offset = 0.0  # chunks are contiguous and non-overlapping, so offsets are exact
             for audio in iter_audio_chunks(path):
+                for t in get_speech_timestamps(audio, VadOptions()):  # same defaults vad_filter=True uses
+                    out.speech.append((round(t["start"] / SAMPLE_RATE + offset, 2),
+                                       round(t["end"] / SAMPLE_RATE + offset, 2)))
                 segments, _info = model.transcribe(
                     audio, language=self.language, beam_size=self.beam_size, vad_filter=True
                 )
-                lines.extend(s.text.strip() for s in segments if s.text.strip())
-            return "\n".join(lines)
+                for s in segments:
+                    if s.text.strip():
+                        out.segments.append((round(s.start + offset, 2), round(s.end + offset, 2), s.text.strip()))
+                offset += len(audio) / SAMPLE_RATE
+            return out
         except Exception as e:  # model download/decoding failures vary widely
             raise TranscribeError(f"transcription failed: {type(e).__name__}: {e}") from e
+
+    def transcribe(self, path: Path) -> str:
+        return self.transcribe_timed(path).text

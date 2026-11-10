@@ -92,11 +92,19 @@ def render_index(query: str = "", tag: str = "", offset: int = 0, db_path=None) 
     return _page("Voice Memory", form + _tag_chips(db.list_tags(db_path), tag) + cards + pager)
 
 
+def _position(m: dict) -> str:
+    a, b = m.get("audio_start_sec"), m.get("audio_end_sec")
+    if a is None or b is None:
+        return ""
+    mm = lambda x: f"{int(x) // 3600}:{int(x) % 3600 // 60:02d}:{int(x) % 60:02d}"
+    return f" · 録音内 {mm(a)}〜{mm(b)}" + (" · アーカイブ済み" if m.get("archived") else "")
+
+
 def render_detail(memory_id: str, db_path=None) -> bytes:
     m = db.get_memory(memory_id, db_path=db_path)
     tags = " ".join(f'<a class="tag" href="/?tag={quote(t)}">{_e(t)}</a>' for t in m["tags"])
     body = (
-        f'<h2>{_e(m["title"])}</h2><div class="meta">{_e(m["recorded_at"])} · {_e(m["source"])}</div>'
+        f'<h2>{_e(m["title"])}</h2><div class="meta">{_e(m["recorded_at"])} · {_e(m["source"])}{_position(m)}</div>'
         f'<div class="tags" style="margin-top:8px">{tags}</div>'
         f'<h3>要約</h3><div class="body">{_e(m["summary"]) or "（なし）"}</div>'
         f'<h3>文字起こし</h3><div class="body">{_e(m["transcript"])}</div>'

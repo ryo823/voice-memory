@@ -129,7 +129,9 @@ def test_deleted_file_is_not_reingested(db_path):
     m = db.save_memory("x", "t", db_path=db_path)
     c = sqlite3.connect(db_path)
     c.executescript(pipeline.SCHEMA)
-    c.execute("INSERT INTO ingested_files VALUES ('sha','n','p',1,1.0,'done','secret',NULL,?,'t','t')", (m["id"],))
+    c.execute("INSERT INTO ingested_files (sha256, original_name, stored_path, size_bytes, duration_sec, status, "
+              "transcript, error, memory_id, created_at, updated_at) "
+              "VALUES ('sha','n','p',1,1.0,'done','secret',NULL,?,'t','t')", (m["id"],))
     c.commit(); c.close()
     db.delete_memory(m["id"], recordings="/nonexistent", db_path=db_path)
     c = sqlite3.connect(db_path)

@@ -119,10 +119,12 @@ def related_memories(conn, memory_id: str, recorded_at: str) -> list[dict]:
         "       (SELECT COUNT(*) FROM memory_tags x WHERE x.tag_id = t.id) AS uses "
         "FROM memory_tags me "
         "JOIN memory_tags mo ON mo.tag_id = me.tag_id AND mo.memory_id != me.memory_id "
-        "JOIN memories o ON o.id = mo.memory_id "
+        "JOIN memories o ON o.id = mo.memory_id AND o.archived = 0 "
+        "JOIN memories self ON self.id = me.memory_id "
         "JOIN tags t ON t.id = me.tag_id "
         "WHERE me.memory_id = ? AND julianday(o.recorded_at) < julianday(?) "
-        "  AND julianday(o.recorded_at) >= julianday(?) - ?",
+        "  AND julianday(o.recorded_at) >= julianday(?) - ? "
+        "  AND (self.audio_path IS NULL OR o.audio_path IS NOT self.audio_path)",  # not a sibling from the same file
         (memory_id, recorded_at, recorded_at, RELATED_DAYS),
     ).fetchall()
     found: dict[str, dict] = {}
@@ -141,7 +143,8 @@ def related_memories(conn, memory_id: str, recorded_at: str) -> list[dict]:
 def memo_block(conn, memo: dict) -> str:
     """One memo as a labeled text block. `memo` is a full get_memory() record."""
     lines = [f"■ メモID: {memo['id']}",
-             f"  録音日時: {format_recorded(memo['recorded_at'])}",
+             f"  録音日時: {format_recorded(memo['recorded_at'])}"
+             + (f"(録音ファイル内 {_position(memo)})" if _position(memo) else ""),
              f"  タイトル: {_one_line(memo['title'])}"]
     summary = _one_line(memo["summary"])
     if summary:
@@ -176,6 +179,36 @@ def memo_block(conn, memo: dict) -> str:
     return "\n".join(lines)
 
 
+def _position(memo: dict) -> str:
+    a, b = memo.get("audio_start_sec"), memo.get("audio_end_sec")
+    if a is None or b is None:
+        return ""
+    return f"{int(a) // 3600}:{int(a) % 3600 // 60:02d}:{int(a) % 60:02d}〜{int(b) // 3600}:{int(b) % 3600 // 60:02d}:{int(b) % 60:02d}"
+
+
+def _group_by_file(pending: list[dict], full: dict[str, dict]) -> list[dict]:
+    """Put memos split out of one recording next to each other, in recording order, under one header line.
+
+    Memos of different files keep the incoming (newest first) order, positioned where their group first appears."""
+    groups: dict[str, list[dict]] = {}
+    order: list[object] = []
+    for p in pending:
+        m = full[p["id"]]
+        key = m["audio_path"] if m.get("split_method") and m.get("audio_path") else p["id"]
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(p)
+    out = []
+    for key in order:
+        members = groups[key]
+        if len(members) > 1:
+            members.sort(key=lambda p: full[p["id"]].get("audio_start_sec") or 0)
+            members[0] = dict(members[0], _group_header=f"▼ 同じ録音ファイルから会話ごとに分割されたメモ({len(members)}件・録音内の時間順)")
+        out.extend(members)
+    return out
+
+
 def build(db_path=None, limit: int = db.MAX_LIMIT) -> tuple[str, list[str]]:
     """Return (mail body, ids of the memos in it) for memos not yet mailed. ('', []) when there are none.
 
@@ -185,8 +218,12 @@ def build(db_path=None, limit: int = db.MAX_LIMIT) -> tuple[str, list[str]]:
     parts, ids = [HEADER], []
     size = len(HEADER)
     with closing(db.connect(db_path)) as conn:
-        for p in pending:
-            block = memo_block(conn, db.get_memory(p["id"], db_path))
+        full = {p["id"]: db.get_memory(p["id"], db_path) for p in pending}
+        for p in _group_by_file(pending, full):
+            memo = full[p["id"]]
+            block = memo_block(conn, memo)
+            if p.get("_group_header"):
+                block = p["_group_header"] + "\n" + block
             if ids and size + len(block) > MAX_BODY_CHARS:
                 break
             parts.append(block)
