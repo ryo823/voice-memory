@@ -1,0 +1,613 @@
+{
+ "memories": [
+  {
+   "key": "m01",
+   "title": "SQLiteのFTS5検索を調べた",
+   "transcript": "trigramトークナイザは3文字以上の語しか索引に載らない。短い語はLIKEで補う必要がある。",
+   "summary": "FTS5の仕様メモ",
+   "tags": [
+    "開発",
+    "sqlite"
+   ],
+   "recorded_at": "2026-09-01T09:00:00"
+  },
+  {
+   "key": "m02",
+   "title": "Raspberry Piのメモリ不足対策",
+   "transcript": "文字起こしの最中にOOMで固まった。音声を分割して読み込み、使用量を抑える。",
+   "summary": "OOM対策",
+   "tags": [
+    "開発",
+    "raspberrypi"
+   ],
+   "recorded_at": "2026-09-02T09:00:00"
+  },
+  {
+   "key": "m03",
+   "title": "Whisperのモデル比較",
+   "transcript": "large-v3-turboが精度と速度のバランスが良い。mediumは固有名詞を間違えやすい。",
+   "summary": "モデル選定",
+   "tags": [
+    "開発",
+    "whisper"
+   ],
+   "recorded_at": "2026-09-03T09:00:00"
+  },
+  {
+   "key": "m04",
+   "title": "バックアップの設定",
+   "transcript": "rcloneでGoogleドライブに毎晩コピーする。チェックサム比較で壊れたファイルを直す。",
+   "summary": "夜間バックアップ",
+   "tags": [
+    "開発",
+    "バックアップ"
+   ],
+   "recorded_at": "2026-09-04T09:00:00"
+  },
+  {
+   "key": "m05",
+   "title": "スマホから閲覧する仕組み",
+   "transcript": "ビューアはTailscale経由に限定して、インターネットには公開しない。",
+   "summary": "閲覧の公開範囲",
+   "tags": [
+    "開発",
+    "tailscale"
+   ],
+   "recorded_at": "2026-09-05T09:00:00"
+  },
+  {
+   "key": "m06",
+   "title": "ログイン画面のバグ",
+   "transcript": "パスワード再設定メールのリンクがすぐ期限切れになる。トークンの有効期限を延ばして直す。",
+   "summary": "再設定リンクの不具合",
+   "tags": [
+    "開発",
+    "バグ"
+   ],
+   "recorded_at": "2026-09-06T09:00:00"
+  },
+  {
+   "key": "m07",
+   "title": "デプロイ手順の見直し",
+   "transcript": "ステージングで確認してから本番へ反映する。ロールバック手順も書いておく。",
+   "summary": "リリース手順",
+   "tags": [
+    "開発",
+    "デプロイ"
+   ],
+   "recorded_at": "2026-09-07T09:00:00"
+  },
+  {
+   "key": "m08",
+   "title": "コードレビューの指摘",
+   "transcript": "変数名が分かりにくいと指摘された。関数を小さく分けて直す。",
+   "summary": "レビュー対応",
+   "tags": [
+    "開発",
+    "レビュー"
+   ],
+   "recorded_at": "2026-09-08T09:00:00"
+  },
+  {
+   "key": "m09",
+   "title": "API設計メモ",
+   "transcript": "エンドポイントは名詞の複数形にそろえる。ページネーションはオフセット方式にする。",
+   "summary": "API規約",
+   "tags": [
+    "開発",
+    "API"
+   ],
+   "recorded_at": "2026-09-09T09:00:00"
+  },
+  {
+   "key": "m10",
+   "title": "テストが落ちる原因",
+   "transcript": "タイムゾーンの違いでCIだけ失敗していた。UTCに統一した。",
+   "summary": "CI失敗の原因",
+   "tags": [
+    "開発",
+    "テスト"
+   ],
+   "recorded_at": "2026-09-10T09:00:00"
+  },
+  {
+   "key": "m11",
+   "title": "娘の運動会",
+   "transcript": "十月の第二土曜日に小学校で運動会がある。お弁当を準備して朝七時に出発する。",
+   "summary": "運動会の段取り",
+   "tags": [
+    "家族",
+    "予定"
+   ],
+   "recorded_at": "2026-09-11T09:00:00"
+  },
+  {
+   "key": "m12",
+   "title": "妻の誕生日プレゼント",
+   "transcript": "来月の誕生日に何を贈るか考えた。ネックレスかスカーフが候補。",
+   "summary": "贈り物の候補",
+   "tags": [
+    "家族",
+    "記念日"
+   ],
+   "recorded_at": "2026-09-12T09:00:00"
+  },
+  {
+   "key": "m13",
+   "title": "保護者面談の日程",
+   "transcript": "担任の先生との面談は来週水曜の午後三時。",
+   "summary": "面談の日時",
+   "tags": [
+    "家族",
+    "予定",
+    "学校"
+   ],
+   "recorded_at": "2026-09-13T09:00:00"
+  },
+  {
+   "key": "m14",
+   "title": "実家への帰省",
+   "transcript": "年末は車で三日間帰省する。渋滞を避けて早朝に出る。",
+   "summary": "年末の帰省",
+   "tags": [
+    "家族",
+    "旅行"
+   ],
+   "recorded_at": "2026-09-14T09:00:00"
+  },
+  {
+   "key": "m15",
+   "title": "町内会の集まり",
+   "transcript": "日曜の朝に公園の清掃がある。軍手を持っていく。",
+   "summary": "公園清掃の予定",
+   "tags": [
+    "家族",
+    "予定"
+   ],
+   "recorded_at": "2026-09-15T09:00:00"
+  },
+  {
+   "key": "m16",
+   "title": "息子のピアノ発表会",
+   "transcript": "発表会は十一月の最終日曜。ホールの集合は午前十時。",
+   "summary": "発表会の日程",
+   "tags": [
+    "家族",
+    "予定"
+   ],
+   "recorded_at": "2026-09-16T09:00:00"
+  },
+  {
+   "key": "m17",
+   "title": "旅行の計画",
+   "transcript": "春休みに京都へ二泊三日で行く。新幹線の切符を早めに取る。",
+   "summary": "京都旅行",
+   "tags": [
+    "家族",
+    "旅行"
+   ],
+   "recorded_at": "2026-09-17T09:00:00"
+  },
+  {
+   "key": "m18",
+   "title": "義母への電話",
+   "transcript": "荷物のお礼を伝える。週末にかけ直す。",
+   "summary": "電話の用件",
+   "tags": [
+    "家族"
+   ],
+   "recorded_at": "2026-09-18T09:00:00"
+  },
+  {
+   "key": "m19",
+   "title": "引っ越しの検討",
+   "transcript": "家賃が上がるので住み替えも考えている。",
+   "summary": "住まいの検討",
+   "tags": [
+    "家族",
+    "住まい"
+   ],
+   "recorded_at": "2026-09-19T09:00:00"
+  },
+  {
+   "key": "m20",
+   "title": "PTAの役員決め",
+   "transcript": "役員の希望を来週までに提出する。",
+   "summary": "役員の希望提出",
+   "tags": [
+    "家族",
+    "学校"
+   ],
+   "recorded_at": "2026-09-20T09:00:00"
+  },
+  {
+   "key": "m21",
+   "title": "歯医者の予約",
+   "transcript": "来週の火曜に定期検診。奥歯の詰め物の様子を見てもらう。",
+   "summary": "歯科の定期検診",
+   "tags": [
+    "健康",
+    "予定"
+   ],
+   "recorded_at": "2026-09-21T09:00:00"
+  },
+  {
+   "key": "m22",
+   "title": "健康診断の結果",
+   "transcript": "血圧が少し高め。塩分を控えて運動を増やすよう言われた。",
+   "summary": "検診結果",
+   "tags": [
+    "健康"
+   ],
+   "recorded_at": "2026-09-22T09:00:00"
+  },
+  {
+   "key": "m23",
+   "title": "ランニング記録",
+   "transcript": "朝五キロ走った。膝に違和感があるので明日は休む。",
+   "summary": "朝ラン",
+   "tags": [
+    "健康",
+    "運動"
+   ],
+   "recorded_at": "2026-09-23T09:00:00"
+  },
+  {
+   "key": "m24",
+   "title": "花粉症の薬",
+   "transcript": "目がかゆい。耳鼻科で薬をもらって飲み始めた。",
+   "summary": "花粉症の治療",
+   "tags": [
+    "健康"
+   ],
+   "recorded_at": "2026-09-24T09:00:00"
+  },
+  {
+   "key": "m25",
+   "title": "睡眠不足が続いている",
+   "transcript": "夜中に目が覚める。寝る前のスマホをやめてみる。",
+   "summary": "眠りの悩み",
+   "tags": [
+    "健康",
+    "睡眠"
+   ],
+   "recorded_at": "2026-09-25T09:00:00"
+  },
+  {
+   "key": "m26",
+   "title": "皮膚科の通院",
+   "transcript": "湿疹が治らない。塗り薬を続けて二週間後に再診。",
+   "summary": "湿疹の通院",
+   "tags": [
+    "健康",
+    "予定"
+   ],
+   "recorded_at": "2026-09-26T09:00:00"
+  },
+  {
+   "key": "m27",
+   "title": "ジムの入会",
+   "transcript": "週二回通うことにした。月会費は七千円。",
+   "summary": "ジム入会",
+   "tags": [
+    "健康",
+    "運動"
+   ],
+   "recorded_at": "2026-09-27T09:00:00"
+  },
+  {
+   "key": "m28",
+   "title": "インフルエンザの予防接種",
+   "transcript": "十一月中に家族全員で受ける。予約は電話でできる。",
+   "summary": "予防接種の予定",
+   "tags": [
+    "健康",
+    "家族"
+   ],
+   "recorded_at": "2026-09-28T09:00:00"
+  },
+  {
+   "key": "m29",
+   "title": "牛乳と卵を買う",
+   "transcript": "帰りにスーパーで牛乳と卵と食パンを買う。",
+   "summary": "食料品の買い出し",
+   "tags": [
+    "買い物"
+   ],
+   "recorded_at": "2026-09-29T09:00:00"
+  },
+  {
+   "key": "m30",
+   "title": "新しいノートパソコン",
+   "transcript": "今のPCは遅い。メモリ十六ギガ以上で軽いものを探す。",
+   "summary": "PCの買い替え",
+   "tags": [
+    "買い物",
+    "PC"
+   ],
+   "recorded_at": "2026-09-30T09:00:00"
+  },
+  {
+   "key": "m31",
+   "title": "掃除機の買い替え",
+   "transcript": "コードレスの掃除機が壊れた。吸引力と電池の持ちを比べる。",
+   "summary": "掃除機選び",
+   "tags": [
+    "買い物"
+   ],
+   "recorded_at": "2026-10-01T09:00:00"
+  },
+  {
+   "key": "m32",
+   "title": "誕生日ケーキの注文",
+   "transcript": "娘の誕生日ケーキを駅前のお店で予約する。",
+   "summary": "ケーキの予約",
+   "tags": [
+    "買い物",
+    "家族"
+   ],
+   "recorded_at": "2026-10-02T09:00:00"
+  },
+  {
+   "key": "m33",
+   "title": "冬用のコート",
+   "transcript": "セールで黒のコートを買いたい。サイズはM。",
+   "summary": "コート探し",
+   "tags": [
+    "買い物"
+   ],
+   "recorded_at": "2026-10-03T09:00:00"
+  },
+  {
+   "key": "m34",
+   "title": "ネットスーパーの登録",
+   "transcript": "重い物は宅配にする。送料が無料になる条件を確認する。",
+   "summary": "宅配の利用",
+   "tags": [
+    "買い物"
+   ],
+   "recorded_at": "2026-10-04T09:00:00"
+  },
+  {
+   "key": "m35",
+   "title": "電池とLED電球",
+   "transcript": "玄関の電球が切れた。単三電池もまとめて買う。",
+   "summary": "電球と電池",
+   "tags": [
+    "買い物"
+   ],
+   "recorded_at": "2026-10-05T09:00:00"
+  },
+  {
+   "key": "m36",
+   "title": "コーヒー豆",
+   "transcript": "いつもの深煎りの豆が切れそう。ネットで注文する。",
+   "summary": "豆の注文",
+   "tags": [
+    "買い物"
+   ],
+   "recorded_at": "2026-10-06T09:00:00"
+  },
+  {
+   "key": "m37",
+   "title": "読書メモ",
+   "transcript": "習慣についての本を読んだ。小さく始めて続けることが大事。",
+   "summary": "習慣の本",
+   "tags": [
+    "読書"
+   ],
+   "recorded_at": "2026-10-07T09:00:00"
+  },
+  {
+   "key": "m38",
+   "title": "確定申告の準備",
+   "transcript": "医療費の領収書を集める。来年二月までに提出する。",
+   "summary": "申告の準備",
+   "tags": [
+    "お金",
+    "予定"
+   ],
+   "recorded_at": "2026-10-08T09:00:00"
+  },
+  {
+   "key": "m39",
+   "title": "車の点検",
+   "transcript": "車検が来月。ディーラーに連絡して代車を頼む。",
+   "summary": "車検の手配",
+   "tags": [
+    "車",
+    "予定"
+   ],
+   "recorded_at": "2026-10-09T09:00:00"
+  },
+  {
+   "key": "m40",
+   "title": "英語の勉強",
+   "transcript": "毎朝十五分、リスニングを続ける。",
+   "summary": "英語学習",
+   "tags": [
+    "勉強"
+   ],
+   "recorded_at": "2026-10-10T09:00:00"
+  }
+ ],
+ "queries": [
+  {
+   "id": "q01",
+   "category": "exact",
+   "query": "運動会",
+   "relevant": [
+    "m11"
+   ]
+  },
+  {
+   "id": "q02",
+   "category": "exact",
+   "query": "Whisper",
+   "relevant": [
+    "m03"
+   ]
+  },
+  {
+   "id": "q03",
+   "category": "exact",
+   "query": "バックアップ",
+   "relevant": [
+    "m04"
+   ]
+  },
+  {
+   "id": "q04",
+   "category": "exact",
+   "query": "OOM",
+   "relevant": [
+    "m02"
+   ]
+  },
+  {
+   "id": "q05",
+   "category": "exact",
+   "query": "歯医者 予約",
+   "relevant": [
+    "m21"
+   ]
+  },
+  {
+   "id": "q06",
+   "category": "exact",
+   "query": "電球 電池",
+   "relevant": [
+    "m35"
+   ]
+  },
+  {
+   "id": "q07",
+   "category": "short",
+   "query": "牛乳",
+   "relevant": [
+    "m29"
+   ]
+  },
+  {
+   "id": "q08",
+   "category": "short",
+   "query": "血圧",
+   "relevant": [
+    "m22"
+   ]
+  },
+  {
+   "id": "q09",
+   "category": "short",
+   "query": "車検",
+   "relevant": [
+    "m39"
+   ]
+  },
+  {
+   "id": "q10",
+   "category": "short",
+   "query": "PC",
+   "relevant": [
+    "m30"
+   ]
+  },
+  {
+   "id": "q11",
+   "category": "paraphrase",
+   "query": "アレルギーの薬",
+   "relevant": [
+    "m24"
+   ]
+  },
+  {
+   "id": "q12",
+   "category": "paraphrase",
+   "query": "転居",
+   "relevant": [
+    "m19"
+   ]
+  },
+  {
+   "id": "q13",
+   "category": "paraphrase",
+   "query": "パソコン購入",
+   "relevant": [
+    "m30"
+   ]
+  },
+  {
+   "id": "q14",
+   "category": "paraphrase",
+   "query": "睡眠の質",
+   "relevant": [
+    "m25"
+   ]
+  },
+  {
+   "id": "q15",
+   "category": "paraphrase",
+   "query": "ごみ拾い",
+   "relevant": [
+    "m15"
+   ]
+  },
+  {
+   "id": "q16",
+   "category": "paraphrase",
+   "query": "お祝いの贈り物",
+   "relevant": [
+    "m12",
+    "m32"
+   ]
+  },
+  {
+   "id": "q17",
+   "category": "tag",
+   "query": "運動",
+   "relevant": [
+    "m23",
+    "m27"
+   ]
+  },
+  {
+   "id": "q18",
+   "category": "tag",
+   "query": "学校",
+   "relevant": [
+    "m13",
+    "m20"
+   ]
+  },
+  {
+   "id": "q19",
+   "category": "tag",
+   "query": "買い物",
+   "relevant": [
+    "m29",
+    "m30",
+    "m31",
+    "m32",
+    "m33",
+    "m34",
+    "m35",
+    "m36"
+   ]
+  },
+  {
+   "id": "q20",
+   "category": "tag",
+   "query": "健康",
+   "relevant": [
+    "m21",
+    "m22",
+    "m23",
+    "m24",
+    "m25",
+    "m26",
+    "m27",
+    "m28"
+   ]
+  }
+ ]
+}

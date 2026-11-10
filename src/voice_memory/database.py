@@ -125,6 +125,16 @@ CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
 # trigram FTS cannot match terms shorter than this many characters; those use LIKE.
 FTS_MIN_TERM = 3
 
+# Result ordering for search_memories: "recent" (newest first) or "bm25" (relevance, ties newest first).
+# Override per call with `order=` or globally with the VOICE_MEMORY_SEARCH_ORDER env var; set it to
+# "recent" to roll back. bm25 only applies when the query has a term of FTS_MIN_TERM+ characters: queries made
+# only of shorter terms use LIKE, which has no score, so they are always newest first.
+SEARCH_ORDERS = ("recent", "bm25")
+DEFAULT_SEARCH_ORDER = "bm25"
+# bm25() column weights in memories_fts column order (memory_id, title, summary, transcript, tags).
+# Title counts most, then summary, tags, transcript. memory_id is UNINDEXED so its weight is unused.
+BM25_WEIGHTS = {"memory_id": 0.0, "title": 10.0, "summary": 5.0, "transcript": 1.0, "tags": 3.0}
+
 
 class ValidationError(ValueError):
     """Invalid user input."""
@@ -409,13 +419,23 @@ def _fts_term(term: str) -> str:
     return '"' + term.replace('"', '""') + '"'
 
 
+def _search_order(order: str | None) -> str:
+    order = order or os.environ.get("VOICE_MEMORY_SEARCH_ORDER") or DEFAULT_SEARCH_ORDER
+    if order not in SEARCH_ORDERS:
+        raise ValidationError(f"order must be one of {', '.join(SEARCH_ORDERS)}")
+    return order
+
+
 def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0,
-                    include_archived: bool = False) -> list[dict]:
+                    order: str | None = None, include_archived: bool = False) -> list[dict]:
     """AND search over whitespace-separated terms in title, summary, transcript and tags.
 
     Terms of FTS_MIN_TERM+ characters use the trigram FTS index; shorter ones fall back
-    to a literal LIKE. Newest first.
+    to a literal LIKE. `order` is "recent" or "bm25" (default: env / DEFAULT_SEARCH_ORDER);
+    bm25 ranks by relevance, ties newest first. Queries with only short (LIKE) terms have no
+    score and stay newest first whatever `order` says.
     """
+    order = _search_order(order)
     query = _clean(query, "query", MAX_QUERY, True)
     limit = _clean_limit(limit)
     offset = _clean_offset(offset)
@@ -425,8 +445,16 @@ def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None, offset
 
     where: list[str] = [] if include_archived else ["m.archived = 0"]
     params: list = []
+    join = ""
+    ranking = ""
     if long_terms:
-        where.append("m.id IN (SELECT memory_id FROM memories_fts WHERE memories_fts MATCH ?)")
+        if order == "bm25":
+            weights = ", ".join(str(w) for w in BM25_WEIGHTS.values())
+            join = "JOIN memories_fts ON memories_fts.memory_id = m.id"
+            where.append("memories_fts MATCH ?")
+            ranking = f"bm25(memories_fts, {weights}), "
+        else:
+            where.append("m.id IN (SELECT memory_id FROM memories_fts WHERE memories_fts MATCH ?)")
         params.append(" AND ".join(_fts_term(t) for t in long_terms))
     for t in short_terms:
         where.append(
@@ -435,7 +463,8 @@ def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None, offset
             "WHERE mt.memory_id = m.id AND t.name LIKE ? ESCAPE '\\'))"
         )
         params += [f"%{_like_escape(t)}%"] * 4
-    sql = f"SELECT m.* FROM memories m WHERE {' AND '.join(where)} ORDER BY m.recorded_at DESC, m.created_at DESC LIMIT ? OFFSET ?"
+    sql = (f"SELECT m.* FROM memories m {join} WHERE {' AND '.join(where)} "
+           f"ORDER BY {ranking}m.recorded_at DESC, m.created_at DESC LIMIT ? OFFSET ?")
     with closing(connect(db_path)) as conn:
         rows = conn.execute(sql, (*params, limit, offset)).fetchall()
         return _summarize(conn, rows, terms)

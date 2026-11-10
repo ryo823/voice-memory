@@ -339,3 +339,38 @@ def test_mark_suggested_hides_from_daily_run_only(db_path):
     assert db.mark_suggested([a["id"]], db_path) == 0
     assert [m["id"] for m in db.pending_memories(db_path=db_path, exclude_suggested=True)] == [b["id"]]
     assert len(db.pending_memories(db_path=db_path)) == 2
+
+
+def _ids(rows):
+    return [r["id"] for r in rows]
+
+
+def test_bm25_title_match_beats_newer_body_only_match(db_path):
+    title_hit = save(db_path, title="引っ越しの検討", summary="x", transcript="y", tags=[], recorded_at="2026-01-01T00:00:00+00:00")
+    body_hit = save(db_path, title="雑談", summary="x", transcript="引っ越しの話をした", tags=[], recorded_at="2026-02-01T00:00:00+00:00")
+    assert _ids(db.search_memories("引っ越し", db_path=db_path, order="recent")) == [body_hit["id"], title_hit["id"]]
+    assert _ids(db.search_memories("引っ越し", db_path=db_path, order="bm25")) == [title_hit["id"], body_hit["id"]]
+
+
+def test_bm25_ties_fall_back_to_newest_first(db_path):
+    old = save(db_path, title="同じ内容のメモ", summary="s", transcript="t", tags=[], recorded_at="2026-01-01T00:00:00+00:00")
+    new = save(db_path, title="同じ内容のメモ", summary="s", transcript="t", tags=[], recorded_at="2026-03-01T00:00:00+00:00")
+    assert _ids(db.search_memories("同じ内容", db_path=db_path, order="bm25")) == [new["id"], old["id"]]
+
+
+def test_short_term_only_query_stays_newest_first(db_path):
+    # Title match is older than the body-only match; LIKE has no score so order must not change.
+    title_hit = save(db_path, title="歯の件", summary="x", transcript="y", tags=[], recorded_at="2026-01-01T00:00:00+00:00")
+    body_hit = save(db_path, title="雑談", summary="x", transcript="歯の話", tags=[], recorded_at="2026-02-01T00:00:00+00:00")
+    expected = [body_hit["id"], title_hit["id"]]
+    for order in ("recent", "bm25"):
+        assert _ids(db.search_memories("歯", db_path=db_path, order=order)) == expected
+
+
+def test_search_order_env_and_validation(db_path, monkeypatch):
+    title_hit = save(db_path, title="引っ越しの検討", summary="x", transcript="y", tags=[], recorded_at="2026-01-01T00:00:00+00:00")
+    body_hit = save(db_path, title="雑談", summary="x", transcript="引っ越しの話", tags=[], recorded_at="2026-02-01T00:00:00+00:00")
+    monkeypatch.setenv("VOICE_MEMORY_SEARCH_ORDER", "recent")
+    assert _ids(db.search_memories("引っ越し", db_path=db_path)) == [body_hit["id"], title_hit["id"]]
+    with pytest.raises(db.ValidationError):
+        db.search_memories("引っ越し", db_path=db_path, order="random")
