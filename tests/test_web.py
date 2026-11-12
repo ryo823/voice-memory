@@ -139,3 +139,68 @@ def test_deleted_file_is_not_reingested(db_path):
     row = c.execute("SELECT * FROM ingested_files").fetchone()
     assert row["status"] == "deleted" and row["transcript"] is None and row["memory_id"] is None
     assert pipeline._claim(c, "sha", "n", "p", type("I", (), {"size_bytes": 1, "duration_sec": 1.0})()) is None
+
+
+def test_date_filter_uses_jst_day(db_path):
+    # 15:55 UTC is 00:55 JST the next day; the JST calendar day must win.
+    db.save_memory("深夜の会話", "t", recorded_at="2026-11-11T15:55:43+00:00", db_path=db_path)
+    db.save_memory("昼の会話", "t", recorded_at="2026-11-11T03:00:00+00:00", db_path=db_path)
+    body12 = web.render_index(date="2026-11-12", db_path=db_path).decode()
+    assert "深夜の会話" in body12 and "昼の会話" not in body12
+    assert "2026-11-12 00:55" in body12  # JST display, not the raw UTC string
+    body11 = web.render_index(date="2026-11-11", db_path=db_path).decode()
+    assert "昼の会話" in body11 and "深夜の会話" not in body11
+
+
+def test_date_view_is_oldest_first_and_shows_daybar(db_path):
+    db.save_memory("あさの会話", "t", recorded_at="2026-11-09T00:30:00+09:00", db_path=db_path)
+    db.save_memory("よるの会話", "t", recorded_at="2026-11-09T20:30:00+09:00", db_path=db_path)
+    body = web.render_index(date="2026-11-09", db_path=db_path).decode()
+    assert body.index("あさの会話") < body.index("よるの会話")
+    assert "2026年11月9日（月） 2件" in body
+    assert "date=2026-11-08" in body and "date=2026-11-10" in body  # prev / next day
+
+
+def test_date_combines_with_tag_and_search(db_path):
+    db.save_memory("タグ付き", "本文アルファ", recorded_at="2026-11-09T10:00:00+09:00", tags=["x"], db_path=db_path)
+    db.save_memory("タグなし", "本文アルファ", recorded_at="2026-11-09T11:00:00+09:00", db_path=db_path)
+    db.save_memory("別日タグ付き", "本文アルファ", recorded_at="2026-11-10T10:00:00+09:00", tags=["x"], db_path=db_path)
+    by_tag = web.render_index(tag="x", date="2026-11-09", db_path=db_path).decode()
+    assert "タグ付き" in by_tag and "タグなし" not in by_tag and "別日タグ付き" not in by_tag
+    by_q = web.render_index(query="アルファ", date="2026-11-10", db_path=db_path).decode()
+    assert "別日タグ付き" in by_q and "<h2>タグ付き" not in by_q
+
+
+def test_daily_counts_exclude_archived(db_path):
+    import sqlite3
+    db.save_memory("a", "t", recorded_at="2026-11-11T15:55:43+00:00", db_path=db_path)
+    db.save_memory("b", "t", recorded_at="2026-11-11T16:55:43+00:00", db_path=db_path)
+    gone = db.save_memory("c", "t", recorded_at="2026-11-11T17:55:43+00:00", db_path=db_path)
+    c = sqlite3.connect(db_path)
+    c.execute("UPDATE memories SET archived = 1 WHERE id = ?", (gone["id"],))
+    c.commit(); c.close()
+    assert db.daily_counts("2026-11", db_path) == {"2026-11-12": 2}
+    with pytest.raises(db.ValidationError):
+        db.daily_counts("2026-13", db_path)
+    with pytest.raises(db.ValidationError):
+        db.memories_by_date("2026-02-30", db_path=db_path)
+
+
+def test_calendar_api_and_index_chrome(db_path):
+    db.save_memory("a", "t", recorded_at="2026-11-09T10:00:00+09:00", db_path=db_path)
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), web.make_handler(db_path))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        status, body = get(base + "/api/calendar?month=2026-11")
+        assert status == 200
+        import json
+        assert json.loads(body) == {"month": "2026-11", "counts": {"2026-11-09": 1}}
+        assert get(base + "/api/calendar?month=bad")[0] == 400
+        assert get(base + "/?date=2026-13-01")[0] == 400
+        status, body = get(base + "/")
+        assert status == 200 and 'id="cal-btn"' in body and "/api/calendar" in body and 'id="cal-overlay"' in body
+        status, body = get(base + "/?date=2026-11-09")
+        assert "2026年11月9日（月） 1件" in body
+    finally:
+        srv.shutdown()
