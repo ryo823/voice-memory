@@ -26,6 +26,9 @@ SNIPPET_LEN = 200
 DEFAULT_PENDING_DAYS = 7
 MAX_PENDING_DAYS = 365
 REGISTRATION_KINDS = ("event", "task", "none")
+# Asia/Tokyo has no DST, so a fixed +9h shift converts any stored ISO offset to the JST calendar day.
+# SQLite date()/datetime() first normalise the stored offset to UTC, so this works for +00:00 and +09:00 rows alike.
+JST_SHIFT = "+9 hours"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS memories (
@@ -294,6 +297,26 @@ def _clean_offset(offset: int) -> int:
     return offset
 
 
+def _clean_day(day: str) -> str:
+    """Validate a YYYY-MM-DD calendar day and return it normalised."""
+    if not isinstance(day, str):
+        raise ValidationError("date must be YYYY-MM-DD")
+    try:
+        return datetime.strptime(day, "%Y-%m-%d").date().isoformat()
+    except ValueError:
+        raise ValidationError("date must be YYYY-MM-DD") from None
+
+
+def _clean_month(month: str) -> str:
+    """Validate a YYYY-MM month and return it normalised."""
+    if not isinstance(month, str):
+        raise ValidationError("month must be YYYY-MM")
+    try:
+        return datetime.strptime(month, "%Y-%m").strftime("%Y-%m")
+    except ValueError:
+        raise ValidationError("month must be YYYY-MM") from None
+
+
 def _like_escape(s: str) -> str:
     return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
@@ -427,7 +450,8 @@ def _search_order(order: str | None) -> str:
 
 
 def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0,
-                    order: str | None = None, include_archived: bool = False) -> list[dict]:
+                    order: str | None = None, include_archived: bool = False,
+                    on_date: str | None = None) -> list[dict]:
     """AND search over whitespace-separated terms in title, summary, transcript and tags.
 
     Terms of FTS_MIN_TERM+ characters use the trigram FTS index; shorter ones fall back
@@ -463,8 +487,16 @@ def search_memories(query: str, limit: int = DEFAULT_LIMIT, db_path=None, offset
             "WHERE mt.memory_id = m.id AND t.name LIKE ? ESCAPE '\\'))"
         )
         params += [f"%{_like_escape(t)}%"] * 4
+    if on_date is not None:
+        # A single JST day is read as a conversation timeline, oldest first, not by relevance.
+        where.append(f"date(m.recorded_at, '{JST_SHIFT}') = ?")
+        params.append(_clean_day(on_date))
+        ranking = ""
+        order_clause = "m.recorded_at ASC, m.created_at ASC"
+    else:
+        order_clause = f"{ranking}m.recorded_at DESC, m.created_at DESC"
     sql = (f"SELECT m.* FROM memories m {join} WHERE {' AND '.join(where)} "
-           f"ORDER BY {ranking}m.recorded_at DESC, m.created_at DESC LIMIT ? OFFSET ?")
+           f"ORDER BY {order_clause} LIMIT ? OFFSET ?")
     with closing(connect(db_path)) as conn:
         rows = conn.execute(sql, (*params, limit, offset)).fetchall()
         return _summarize(conn, rows, terms)
@@ -539,19 +571,52 @@ def recent_memories(limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0,
         return _summarize(conn, rows)
 
 
-def memories_by_tag(tag: str, limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0) -> list[dict]:
-    """Memories carrying exactly this tag, newest first."""
+def memories_by_tag(tag: str, limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0,
+                    on_date: str | None = None) -> list[dict]:
+    """Memories carrying exactly this tag, newest first (oldest first when restricted to one JST day)."""
     tag = _clean(tag, "tag", MAX_TAG_LEN, True)
+    limit = _clean_limit(limit)
+    offset = _clean_offset(offset)
+    date_cond, params = "", [tag]
+    order_clause = "m.recorded_at DESC, m.created_at DESC"
+    if on_date is not None:
+        date_cond = f" AND date(m.recorded_at, '{JST_SHIFT}') = ?"
+        params.append(_clean_day(on_date))
+        order_clause = "m.recorded_at ASC, m.created_at ASC"
+    with closing(connect(db_path)) as conn:
+        rows = conn.execute(
+            "SELECT m.* FROM memories m WHERE m.archived = 0 AND m.id IN (SELECT mt.memory_id FROM memory_tags mt "
+            "JOIN tags t ON t.id = mt.tag_id WHERE t.name = ?)" + date_cond + f" "
+            f"ORDER BY {order_clause} LIMIT ? OFFSET ?",
+            (*params, limit, offset),
+        ).fetchall()
+        return _summarize(conn, rows)
+
+
+def memories_by_date(day: str, limit: int = DEFAULT_LIMIT, db_path=None, offset: int = 0) -> list[dict]:
+    """Memories recorded on one Asia/Tokyo calendar day, oldest first (conversation order)."""
+    day = _clean_day(day)
     limit = _clean_limit(limit)
     offset = _clean_offset(offset)
     with closing(connect(db_path)) as conn:
         rows = conn.execute(
-            "SELECT m.* FROM memories m WHERE m.archived = 0 AND m.id IN (SELECT mt.memory_id FROM memory_tags mt "
-            "JOIN tags t ON t.id = mt.tag_id WHERE t.name = ?) "
-            "ORDER BY m.recorded_at DESC, m.created_at DESC LIMIT ? OFFSET ?",
-            (tag, limit, offset),
+            f"SELECT * FROM memories WHERE archived = 0 AND date(recorded_at, '{JST_SHIFT}') = ? "
+            "ORDER BY recorded_at ASC, created_at ASC LIMIT ? OFFSET ?",
+            (day, limit, offset),
         ).fetchall()
         return _summarize(conn, rows)
+
+
+def daily_counts(month: str, db_path=None) -> dict[str, int]:
+    """Non-archived memory counts per Asia/Tokyo day for one YYYY-MM month, as {day: count}."""
+    month = _clean_month(month)
+    with closing(connect(db_path)) as conn:
+        rows = conn.execute(
+            f"SELECT date(recorded_at, '{JST_SHIFT}') AS day, COUNT(*) AS count FROM memories "
+            f"WHERE archived = 0 AND strftime('%Y-%m', date(recorded_at, '{JST_SHIFT}')) = ? GROUP BY day",
+            (month,),
+        ).fetchall()
+        return {r["day"]: r["count"] for r in rows}
 
 
 def pending_memories(days: int = DEFAULT_PENDING_DAYS, limit: int = DEFAULT_LIMIT, db_path=None,
