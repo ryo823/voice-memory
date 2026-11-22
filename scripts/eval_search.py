@@ -2,6 +2,8 @@
 
 Builds a throwaway DB from tests/fixtures/search_eval.json (synthetic data only), runs
 database.search_memories for every query and reports Recall@5 / Recall@10 / MRR.
+Queries with no relevant memory (category no_match) are left out of those averages; they are
+reported as a false positive rate = share of such queries that returned at least one hit.
 """
 import argparse, json, sys, tempfile
 from pathlib import Path
@@ -30,10 +32,24 @@ def build_db(fixture: dict, db_path: Path) -> dict[str, str]:
 
 
 def score(ranked: list[str], relevant: set[str]) -> dict:
-    """Recall@k = relevant found in top k / all relevant; RR = 1/rank of first relevant (0 if none)."""
+    """Recall@k = relevant found in top k / all relevant; RR = 1/rank of first relevant (0 if none).
+    With no relevant memory there is nothing to recall: every metric is None (see is_no_match)."""
+    if not relevant:
+        return {**{f"recall@{k}": None for k in KS}, "rr": None}
     out = {f"recall@{k}": len(relevant & set(ranked[:k])) / len(relevant) for k in KS}
     out["rr"] = next((1 / (i + 1) for i, r in enumerate(ranked) if r in relevant), 0.0)
     return out
+
+
+def is_no_match(q: dict) -> bool:
+    return not q["relevant"]
+
+
+def false_positive_rate(rows: list[dict]) -> dict:
+    """Share of no-match queries that returned >= 1 memory (any hit is a false positive)."""
+    fp = [r for r in rows if r["returned"] > 0]
+    return {"n": len(rows), "false_positives": len(fp),
+            "false_positive_rate": len(fp) / len(rows) if rows else None}
 
 
 def mean(rows: list[dict]) -> dict:
@@ -50,23 +66,38 @@ def evaluate(fixture: dict, db_path: Path, order: str | None = None) -> dict:
         ranked = [key_of[h["id"]] for h in hits]
         per_query.append({**q, "returned": len(ranked), "top10": ranked[:10],
                           **score(ranked, set(q["relevant"]))})
+    scored = [q for q in per_query if not is_no_match(q)]
+    no_match = [q for q in per_query if is_no_match(q)]
     cats = sorted({q["category"] for q in per_query})
+
+    def summarize(c):
+        rows = [q for q in per_query if q["category"] == c]
+        return false_positive_rate(rows) if all(is_no_match(q) for q in rows) else mean(rows)
+
     return {
-        "overall": mean(per_query),
-        "by_category": {c: mean([q for q in per_query if q["category"] == c]) for c in cats},
+        "overall": mean(scored),
+        "no_match": false_positive_rate(no_match),
+        "by_category": {c: summarize(c) for c in cats},
         "queries": per_query,
-        "missed": [q["id"] for q in per_query if q["rr"] == 0.0],
+        "missed": [q["id"] for q in scored if q["rr"] == 0.0],
+        "false_positives": [q["id"] for q in no_match if q["returned"] > 0],
     }
 
 
 def report(res: dict) -> str:
     def line(name, m):
+        if "false_positive_rate" in m:
+            return f"{name:<12} n={m['n']:<3} false positive rate={m['false_positive_rate']:.3f} ({m['false_positives']}/{m['n']})"
         return f"{name:<12} n={m['n']:<3} R@5={m['recall@5']:.3f}  R@10={m['recall@10']:.3f}  MRR={m['rr']:.3f}"
-    out = [line("OVERALL", res["overall"]), ""]
+    out = [line("OVERALL", res["overall"]) + "   (no_match excluded)", line("no_match", res["no_match"]), ""]
     out += [line(c, m) for c, m in res["by_category"].items()]
-    out += ["", "id   category    R@5   R@10  RR    returned  query"]
+    out += ["", "id   category      R@5   R@10  RR    returned  query"]
     for q in res["queries"]:
-        out.append(f"{q['id']}  {q['category']:<10} {q['recall@5']:.2f}  {q['recall@10']:.2f}  {q['rr']:.2f}  "
+        if is_no_match(q):
+            out.append(f"{q['id']}  {q['category']:<12}  -     -     -     {q['returned']:>5}     {q['query']}"
+                       + ("   <- FALSE POSITIVE" if q["returned"] else ""))
+            continue
+        out.append(f"{q['id']}  {q['category']:<12}  {q['recall@5']:.2f}  {q['recall@10']:.2f}  {q['rr']:.2f}  "
                    f"{q['returned']:>5}     {q['query']}" + ("   <- MISS" if q["rr"] == 0 else ""))
     return "\n".join(out)
 

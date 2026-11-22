@@ -1,0 +1,2002 @@
+{
+  "recent": {
+    "overall": {
+      "n": 54,
+      "recall@5": 0.4305555555555556,
+      "recall@10": 0.4444444444444444,
+      "rr": 0.4444444444444444
+    },
+    "no_match": {
+      "n": 10,
+      "false_positives": 0,
+      "false_positive_rate": 0.0
+    },
+    "by_category": {
+      "composite": {
+        "n": 5,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      "exact": {
+        "n": 6,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      "no_match": {
+        "n": 10,
+        "false_positives": 0,
+        "false_positive_rate": 0.0
+      },
+      "paraphrase": {
+        "n": 15,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      "person_event": {
+        "n": 10,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      "short": {
+        "n": 4,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      "tag": {
+        "n": 4,
+        "recall@5": 0.8125,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      "temporal": {
+        "n": 10,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      }
+    },
+    "queries": [
+      {
+        "id": "q01",
+        "category": "exact",
+        "query": "運動会",
+        "relevant": [
+          "m11"
+        ],
+        "returned": 1,
+        "top10": [
+          "m11"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q02",
+        "category": "exact",
+        "query": "Whisper",
+        "relevant": [
+          "m03"
+        ],
+        "returned": 1,
+        "top10": [
+          "m03"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q03",
+        "category": "exact",
+        "query": "バックアップ",
+        "relevant": [
+          "m04"
+        ],
+        "returned": 1,
+        "top10": [
+          "m04"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q04",
+        "category": "exact",
+        "query": "OOM",
+        "relevant": [
+          "m02"
+        ],
+        "returned": 1,
+        "top10": [
+          "m02"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q05",
+        "category": "exact",
+        "query": "歯医者 予約",
+        "relevant": [
+          "m21"
+        ],
+        "returned": 1,
+        "top10": [
+          "m21"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q06",
+        "category": "exact",
+        "query": "電球 電池",
+        "relevant": [
+          "m35"
+        ],
+        "returned": 1,
+        "top10": [
+          "m35"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q07",
+        "category": "short",
+        "query": "牛乳",
+        "relevant": [
+          "m29"
+        ],
+        "returned": 1,
+        "top10": [
+          "m29"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q08",
+        "category": "short",
+        "query": "血圧",
+        "relevant": [
+          "m22"
+        ],
+        "returned": 1,
+        "top10": [
+          "m22"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q09",
+        "category": "short",
+        "query": "車検",
+        "relevant": [
+          "m39"
+        ],
+        "returned": 1,
+        "top10": [
+          "m39"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q10",
+        "category": "short",
+        "query": "PC",
+        "relevant": [
+          "m30"
+        ],
+        "returned": 1,
+        "top10": [
+          "m30"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q11",
+        "category": "paraphrase",
+        "query": "アレルギーの薬",
+        "relevant": [
+          "m24"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q12",
+        "category": "paraphrase",
+        "query": "転居",
+        "relevant": [
+          "m19"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q13",
+        "category": "paraphrase",
+        "query": "パソコン購入",
+        "relevant": [
+          "m30"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q14",
+        "category": "paraphrase",
+        "query": "睡眠の質",
+        "relevant": [
+          "m25"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q15",
+        "category": "paraphrase",
+        "query": "ごみ拾い",
+        "relevant": [
+          "m15"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q16",
+        "category": "paraphrase",
+        "query": "お祝いの贈り物",
+        "relevant": [
+          "m12",
+          "m32"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q17",
+        "category": "tag",
+        "query": "運動",
+        "relevant": [
+          "m23",
+          "m27"
+        ],
+        "returned": 4,
+        "top10": [
+          "m27",
+          "m23",
+          "m22",
+          "m11"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q18",
+        "category": "tag",
+        "query": "学校",
+        "relevant": [
+          "m13",
+          "m20"
+        ],
+        "returned": 3,
+        "top10": [
+          "m20",
+          "m13",
+          "m11"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q19",
+        "category": "tag",
+        "query": "買い物",
+        "relevant": [
+          "m29",
+          "m30",
+          "m31",
+          "m32",
+          "m33",
+          "m34",
+          "m35",
+          "m36"
+        ],
+        "returned": 8,
+        "top10": [
+          "m36",
+          "m35",
+          "m34",
+          "m33",
+          "m32",
+          "m31",
+          "m30",
+          "m29"
+        ],
+        "recall@5": 0.625,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q20",
+        "category": "tag",
+        "query": "健康",
+        "relevant": [
+          "m21",
+          "m22",
+          "m23",
+          "m24",
+          "m25",
+          "m26",
+          "m27",
+          "m28"
+        ],
+        "returned": 8,
+        "top10": [
+          "m28",
+          "m27",
+          "m26",
+          "m25",
+          "m24",
+          "m23",
+          "m22",
+          "m21"
+        ],
+        "recall@5": 0.625,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q21",
+        "category": "paraphrase",
+        "query": "毎月の携帯代を下げる",
+        "relevant": [
+          "m108"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q22",
+        "category": "paraphrase",
+        "query": "ぎっくり腰の治療",
+        "relevant": [
+          "m53",
+          "m54"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q23",
+        "category": "paraphrase",
+        "query": "食器を自動で洗う機械",
+        "relevant": [
+          "m72"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q24",
+        "category": "paraphrase",
+        "query": "ネット回線が遅い",
+        "relevant": [
+          "m73"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q25",
+        "category": "paraphrase",
+        "query": "海外渡航の事前準備",
+        "relevant": [
+          "m94",
+          "m97"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q26",
+        "category": "paraphrase",
+        "query": "地震や火事への備え",
+        "relevant": [
+          "m102"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q27",
+        "category": "paraphrase",
+        "query": "炊飯の道具を新調",
+        "relevant": [
+          "m71"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q28",
+        "category": "paraphrase",
+        "query": "同じ文が何度も出る問題",
+        "relevant": [
+          "m45"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q29",
+        "category": "paraphrase",
+        "query": "ご近所トラブル",
+        "relevant": [
+          "m103"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q30",
+        "category": "temporal",
+        "query": "最初に腰が痛くなったときのメモ",
+        "relevant": [
+          "m53"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q31",
+        "category": "temporal",
+        "query": "八月に記録した旅行のメモ",
+        "relevant": [
+          "m91",
+          "m96"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q32",
+        "category": "temporal",
+        "query": "十一月に入ってから受けた予防接種",
+        "relevant": [
+          "m57"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q33",
+        "category": "temporal",
+        "query": "九月の前半に記録した面談",
+        "relevant": [
+          "m13",
+          "m83"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q34",
+        "category": "temporal",
+        "query": "母の退院より前に記録した入院のメモ",
+        "relevant": [
+          "m63"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q35",
+        "category": "temporal",
+        "query": "十月に記録した結婚式の予定",
+        "relevant": [
+          "m62"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q36",
+        "category": "temporal",
+        "query": "先月のタイヤ交換の予定",
+        "relevant": [
+          "m109"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q37",
+        "category": "temporal",
+        "query": "八月にメモした仕事の打ち合わせ",
+        "relevant": [
+          "m81"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q38",
+        "category": "temporal",
+        "query": "最初に書いたRaspberry Piの話",
+        "relevant": [
+          "m02"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q39",
+        "category": "temporal",
+        "query": "九月に記録した歯の予約",
+        "relevant": [
+          "m21",
+          "m82"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q40",
+        "category": "person_event",
+        "query": "田中さん",
+        "relevant": [
+          "m81"
+        ],
+        "returned": 1,
+        "top10": [
+          "m81"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q41",
+        "category": "person_event",
+        "query": "佐藤部長",
+        "relevant": [
+          "m83"
+        ],
+        "returned": 1,
+        "top10": [
+          "m83"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q42",
+        "category": "person_event",
+        "query": "健太の結婚式",
+        "relevant": [
+          "m61"
+        ],
+        "returned": 1,
+        "top10": [
+          "m61"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q43",
+        "category": "person_event",
+        "query": "山田の結婚式",
+        "relevant": [
+          "m62"
+        ],
+        "returned": 1,
+        "top10": [
+          "m62"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q44",
+        "category": "person_event",
+        "query": "母の入院",
+        "relevant": [
+          "m63"
+        ],
+        "returned": 1,
+        "top10": [
+          "m63"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q45",
+        "category": "person_event",
+        "query": "井上さん",
+        "relevant": [
+          "m98",
+          "m102"
+        ],
+        "returned": 2,
+        "top10": [
+          "m102",
+          "m98"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q46",
+        "category": "person_event",
+        "query": "山本さん",
+        "relevant": [
+          "m103"
+        ],
+        "returned": 1,
+        "top10": [
+          "m103"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q47",
+        "category": "person_event",
+        "query": "鈴木先生",
+        "relevant": [
+          "m65"
+        ],
+        "returned": 1,
+        "top10": [
+          "m65"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q48",
+        "category": "person_event",
+        "query": "叔父の法事",
+        "relevant": [
+          "m66"
+        ],
+        "returned": 1,
+        "top10": [
+          "m66"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q49",
+        "category": "person_event",
+        "query": "バレエの発表会",
+        "relevant": [
+          "m67"
+        ],
+        "returned": 1,
+        "top10": [
+          "m67"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q50",
+        "category": "composite",
+        "query": "佐藤さんからの見積もりの依頼",
+        "relevant": [
+          "m84"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q51",
+        "category": "composite",
+        "query": "九月に記録した家族の入院の話",
+        "relevant": [
+          "m63"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q52",
+        "category": "composite",
+        "query": "田中さんと決めた優先順位",
+        "relevant": [
+          "m81"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q53",
+        "category": "composite",
+        "query": "十一月の地域の予定で井上さんが関わるもの",
+        "relevant": [
+          "m102"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q54",
+        "category": "composite",
+        "query": "十一月に記録した家電の話",
+        "relevant": [
+          "m73"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q55",
+        "category": "no_match",
+        "query": "ハワイ旅行の費用",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q56",
+        "category": "no_match",
+        "query": "ご祝儀の金額",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q57",
+        "category": "no_match",
+        "query": "ゴルフの予約",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q58",
+        "category": "no_match",
+        "query": "猫の名前",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q59",
+        "category": "no_match",
+        "query": "株式投資の始め方",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q60",
+        "category": "no_match",
+        "query": "英検の結果",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q61",
+        "category": "no_match",
+        "query": "引っ越し 見積もり",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q62",
+        "category": "no_match",
+        "query": "ダイエットの体重",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q63",
+        "category": "no_match",
+        "query": "還付金はいくら戻ったか",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q64",
+        "category": "no_match",
+        "query": "転職エージェントの連絡先",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      }
+    ],
+    "missed": [
+      "q11",
+      "q12",
+      "q13",
+      "q14",
+      "q15",
+      "q16",
+      "q21",
+      "q22",
+      "q23",
+      "q24",
+      "q25",
+      "q26",
+      "q27",
+      "q28",
+      "q29",
+      "q30",
+      "q31",
+      "q32",
+      "q33",
+      "q34",
+      "q35",
+      "q36",
+      "q37",
+      "q38",
+      "q39",
+      "q50",
+      "q51",
+      "q52",
+      "q53",
+      "q54"
+    ],
+    "false_positives": []
+  },
+  "bm25": {
+    "overall": {
+      "n": 54,
+      "recall@5": 0.4305555555555556,
+      "recall@10": 0.4444444444444444,
+      "rr": 0.4444444444444444
+    },
+    "no_match": {
+      "n": 10,
+      "false_positives": 0,
+      "false_positive_rate": 0.0
+    },
+    "by_category": {
+      "composite": {
+        "n": 5,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      "exact": {
+        "n": 6,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      "no_match": {
+        "n": 10,
+        "false_positives": 0,
+        "false_positive_rate": 0.0
+      },
+      "paraphrase": {
+        "n": 15,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      "person_event": {
+        "n": 10,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      "short": {
+        "n": 4,
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      "tag": {
+        "n": 4,
+        "recall@5": 0.8125,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      "temporal": {
+        "n": 10,
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      }
+    },
+    "queries": [
+      {
+        "id": "q01",
+        "category": "exact",
+        "query": "運動会",
+        "relevant": [
+          "m11"
+        ],
+        "returned": 1,
+        "top10": [
+          "m11"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q02",
+        "category": "exact",
+        "query": "Whisper",
+        "relevant": [
+          "m03"
+        ],
+        "returned": 1,
+        "top10": [
+          "m03"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q03",
+        "category": "exact",
+        "query": "バックアップ",
+        "relevant": [
+          "m04"
+        ],
+        "returned": 1,
+        "top10": [
+          "m04"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q04",
+        "category": "exact",
+        "query": "OOM",
+        "relevant": [
+          "m02"
+        ],
+        "returned": 1,
+        "top10": [
+          "m02"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q05",
+        "category": "exact",
+        "query": "歯医者 予約",
+        "relevant": [
+          "m21"
+        ],
+        "returned": 1,
+        "top10": [
+          "m21"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q06",
+        "category": "exact",
+        "query": "電球 電池",
+        "relevant": [
+          "m35"
+        ],
+        "returned": 1,
+        "top10": [
+          "m35"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q07",
+        "category": "short",
+        "query": "牛乳",
+        "relevant": [
+          "m29"
+        ],
+        "returned": 1,
+        "top10": [
+          "m29"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q08",
+        "category": "short",
+        "query": "血圧",
+        "relevant": [
+          "m22"
+        ],
+        "returned": 1,
+        "top10": [
+          "m22"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q09",
+        "category": "short",
+        "query": "車検",
+        "relevant": [
+          "m39"
+        ],
+        "returned": 1,
+        "top10": [
+          "m39"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q10",
+        "category": "short",
+        "query": "PC",
+        "relevant": [
+          "m30"
+        ],
+        "returned": 1,
+        "top10": [
+          "m30"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q11",
+        "category": "paraphrase",
+        "query": "アレルギーの薬",
+        "relevant": [
+          "m24"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q12",
+        "category": "paraphrase",
+        "query": "転居",
+        "relevant": [
+          "m19"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q13",
+        "category": "paraphrase",
+        "query": "パソコン購入",
+        "relevant": [
+          "m30"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q14",
+        "category": "paraphrase",
+        "query": "睡眠の質",
+        "relevant": [
+          "m25"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q15",
+        "category": "paraphrase",
+        "query": "ごみ拾い",
+        "relevant": [
+          "m15"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q16",
+        "category": "paraphrase",
+        "query": "お祝いの贈り物",
+        "relevant": [
+          "m12",
+          "m32"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q17",
+        "category": "tag",
+        "query": "運動",
+        "relevant": [
+          "m23",
+          "m27"
+        ],
+        "returned": 4,
+        "top10": [
+          "m27",
+          "m23",
+          "m22",
+          "m11"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q18",
+        "category": "tag",
+        "query": "学校",
+        "relevant": [
+          "m13",
+          "m20"
+        ],
+        "returned": 3,
+        "top10": [
+          "m20",
+          "m13",
+          "m11"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q19",
+        "category": "tag",
+        "query": "買い物",
+        "relevant": [
+          "m29",
+          "m30",
+          "m31",
+          "m32",
+          "m33",
+          "m34",
+          "m35",
+          "m36"
+        ],
+        "returned": 8,
+        "top10": [
+          "m33",
+          "m36",
+          "m35",
+          "m29",
+          "m32",
+          "m34",
+          "m31",
+          "m30"
+        ],
+        "recall@5": 0.625,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q20",
+        "category": "tag",
+        "query": "健康",
+        "relevant": [
+          "m21",
+          "m22",
+          "m23",
+          "m24",
+          "m25",
+          "m26",
+          "m27",
+          "m28"
+        ],
+        "returned": 8,
+        "top10": [
+          "m28",
+          "m27",
+          "m26",
+          "m25",
+          "m24",
+          "m23",
+          "m22",
+          "m21"
+        ],
+        "recall@5": 0.625,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q21",
+        "category": "paraphrase",
+        "query": "毎月の携帯代を下げる",
+        "relevant": [
+          "m108"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q22",
+        "category": "paraphrase",
+        "query": "ぎっくり腰の治療",
+        "relevant": [
+          "m53",
+          "m54"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q23",
+        "category": "paraphrase",
+        "query": "食器を自動で洗う機械",
+        "relevant": [
+          "m72"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q24",
+        "category": "paraphrase",
+        "query": "ネット回線が遅い",
+        "relevant": [
+          "m73"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q25",
+        "category": "paraphrase",
+        "query": "海外渡航の事前準備",
+        "relevant": [
+          "m94",
+          "m97"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q26",
+        "category": "paraphrase",
+        "query": "地震や火事への備え",
+        "relevant": [
+          "m102"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q27",
+        "category": "paraphrase",
+        "query": "炊飯の道具を新調",
+        "relevant": [
+          "m71"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q28",
+        "category": "paraphrase",
+        "query": "同じ文が何度も出る問題",
+        "relevant": [
+          "m45"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q29",
+        "category": "paraphrase",
+        "query": "ご近所トラブル",
+        "relevant": [
+          "m103"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q30",
+        "category": "temporal",
+        "query": "最初に腰が痛くなったときのメモ",
+        "relevant": [
+          "m53"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q31",
+        "category": "temporal",
+        "query": "八月に記録した旅行のメモ",
+        "relevant": [
+          "m91",
+          "m96"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q32",
+        "category": "temporal",
+        "query": "十一月に入ってから受けた予防接種",
+        "relevant": [
+          "m57"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q33",
+        "category": "temporal",
+        "query": "九月の前半に記録した面談",
+        "relevant": [
+          "m13",
+          "m83"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q34",
+        "category": "temporal",
+        "query": "母の退院より前に記録した入院のメモ",
+        "relevant": [
+          "m63"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q35",
+        "category": "temporal",
+        "query": "十月に記録した結婚式の予定",
+        "relevant": [
+          "m62"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q36",
+        "category": "temporal",
+        "query": "先月のタイヤ交換の予定",
+        "relevant": [
+          "m109"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q37",
+        "category": "temporal",
+        "query": "八月にメモした仕事の打ち合わせ",
+        "relevant": [
+          "m81"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q38",
+        "category": "temporal",
+        "query": "最初に書いたRaspberry Piの話",
+        "relevant": [
+          "m02"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q39",
+        "category": "temporal",
+        "query": "九月に記録した歯の予約",
+        "relevant": [
+          "m21",
+          "m82"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q40",
+        "category": "person_event",
+        "query": "田中さん",
+        "relevant": [
+          "m81"
+        ],
+        "returned": 1,
+        "top10": [
+          "m81"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q41",
+        "category": "person_event",
+        "query": "佐藤部長",
+        "relevant": [
+          "m83"
+        ],
+        "returned": 1,
+        "top10": [
+          "m83"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q42",
+        "category": "person_event",
+        "query": "健太の結婚式",
+        "relevant": [
+          "m61"
+        ],
+        "returned": 1,
+        "top10": [
+          "m61"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q43",
+        "category": "person_event",
+        "query": "山田の結婚式",
+        "relevant": [
+          "m62"
+        ],
+        "returned": 1,
+        "top10": [
+          "m62"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q44",
+        "category": "person_event",
+        "query": "母の入院",
+        "relevant": [
+          "m63"
+        ],
+        "returned": 1,
+        "top10": [
+          "m63"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q45",
+        "category": "person_event",
+        "query": "井上さん",
+        "relevant": [
+          "m98",
+          "m102"
+        ],
+        "returned": 2,
+        "top10": [
+          "m98",
+          "m102"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q46",
+        "category": "person_event",
+        "query": "山本さん",
+        "relevant": [
+          "m103"
+        ],
+        "returned": 1,
+        "top10": [
+          "m103"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q47",
+        "category": "person_event",
+        "query": "鈴木先生",
+        "relevant": [
+          "m65"
+        ],
+        "returned": 1,
+        "top10": [
+          "m65"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q48",
+        "category": "person_event",
+        "query": "叔父の法事",
+        "relevant": [
+          "m66"
+        ],
+        "returned": 1,
+        "top10": [
+          "m66"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q49",
+        "category": "person_event",
+        "query": "バレエの発表会",
+        "relevant": [
+          "m67"
+        ],
+        "returned": 1,
+        "top10": [
+          "m67"
+        ],
+        "recall@5": 1.0,
+        "recall@10": 1.0,
+        "rr": 1.0
+      },
+      {
+        "id": "q50",
+        "category": "composite",
+        "query": "佐藤さんからの見積もりの依頼",
+        "relevant": [
+          "m84"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q51",
+        "category": "composite",
+        "query": "九月に記録した家族の入院の話",
+        "relevant": [
+          "m63"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q52",
+        "category": "composite",
+        "query": "田中さんと決めた優先順位",
+        "relevant": [
+          "m81"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q53",
+        "category": "composite",
+        "query": "十一月の地域の予定で井上さんが関わるもの",
+        "relevant": [
+          "m102"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q54",
+        "category": "composite",
+        "query": "十一月に記録した家電の話",
+        "relevant": [
+          "m73"
+        ],
+        "returned": 0,
+        "top10": [],
+        "recall@5": 0.0,
+        "recall@10": 0.0,
+        "rr": 0.0
+      },
+      {
+        "id": "q55",
+        "category": "no_match",
+        "query": "ハワイ旅行の費用",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q56",
+        "category": "no_match",
+        "query": "ご祝儀の金額",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q57",
+        "category": "no_match",
+        "query": "ゴルフの予約",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q58",
+        "category": "no_match",
+        "query": "猫の名前",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q59",
+        "category": "no_match",
+        "query": "株式投資の始め方",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q60",
+        "category": "no_match",
+        "query": "英検の結果",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q61",
+        "category": "no_match",
+        "query": "引っ越し 見積もり",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q62",
+        "category": "no_match",
+        "query": "ダイエットの体重",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q63",
+        "category": "no_match",
+        "query": "還付金はいくら戻ったか",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      },
+      {
+        "id": "q64",
+        "category": "no_match",
+        "query": "転職エージェントの連絡先",
+        "relevant": [],
+        "returned": 0,
+        "top10": [],
+        "recall@5": null,
+        "recall@10": null,
+        "rr": null
+      }
+    ],
+    "missed": [
+      "q11",
+      "q12",
+      "q13",
+      "q14",
+      "q15",
+      "q16",
+      "q21",
+      "q22",
+      "q23",
+      "q24",
+      "q25",
+      "q26",
+      "q27",
+      "q28",
+      "q29",
+      "q30",
+      "q31",
+      "q32",
+      "q33",
+      "q34",
+      "q35",
+      "q36",
+      "q37",
+      "q38",
+      "q39",
+      "q50",
+      "q51",
+      "q52",
+      "q53",
+      "q54"
+    ],
+    "false_positives": []
+  }
+}
