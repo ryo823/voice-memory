@@ -1,0 +1,69 @@
+{
+  "name": "e5-small-fp32",
+  "model_mb": 470.3,
+  "load_s": 1.39,
+  "peak_rss_mb": 1157.0,
+  "docs_s": 2.74,
+  "queries_s": 0.48,
+  "ms_per_query": 7.5,
+  "dim": 384,
+  "pairs": [
+    {
+      "query": "転居",
+      "relevant_mean": 0.835952639579773,
+      "worst_relevant": 0.835952639579773,
+      "unrelated_mean": 0.7804930806159973,
+      "best_unrelated": 0.8163626194000244
+    },
+    {
+      "query": "アレルギーの薬",
+      "relevant_mean": 0.8547073602676392,
+      "worst_relevant": 0.8547073602676392,
+      "unrelated_mean": 0.7718809843063354,
+      "best_unrelated": 0.830212414264679
+    },
+    {
+      "query": "パソコン購入",
+      "relevant_mean": 0.8659884929656982,
+      "worst_relevant": 0.8659884929656982,
+      "unrelated_mean": 0.7954860925674438,
+      "best_unrelated": 0.8405579328536987
+    },
+    {
+      "query": "ご近所トラブル",
+      "relevant_mean": 0.8284292221069336,
+      "worst_relevant": 0.8284292221069336,
+      "unrelated_mean": 0.7954983711242676,
+      "best_unrelated": 0.8359754085540771
+    },
+    {
+      "query": "食器を自動で洗う機械",
+      "relevant_mean": 0.8498430252075195,
+      "worst_relevant": 0.8498430252075195,
+      "unrelated_mean": 0.7795282602310181,
+      "best_unrelated": 0.8310106992721558
+    },
+    {
+      "query": "ネット回線が遅い",
+      "relevant_mean": 0.8748514652252197,
+      "worst_relevant": 0.8748514652252197,
+      "unrelated_mean": 0.7894616723060608,
+      "best_unrelated": 0.8551578521728516
+    }
+  ],
+  "mean_separation": 0.066,
+  "paraphrase_pure_vector": {
+    "R@5": 0.833,
+    "R@10": 0.9
+  },
+  "all_pure_vector": {
+    "R@5": 0.884,
+    "R@10": 0.917
+  },
+  "no_match_top1_sim": {
+    "min": 0.817,
+    "max": 0.863,
+    "mean": 0.833
+  },
+  "paraphrase_relevant_sim_mean": 0.847
+}

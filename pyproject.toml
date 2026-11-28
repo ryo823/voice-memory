@@ -11,6 +11,7 @@ dependencies = ["mcp>=2.3,<3", "faster-whisper>=1.1,<2", "anthropic>=2,<3", "av>
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+eval = ["janome>=0.5,<1"]
 
 [project.scripts]
 voice-memory-mcp = "voice_memory.mcp_server:main"
